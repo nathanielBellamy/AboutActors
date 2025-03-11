@@ -5,6 +5,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import dev.nateschieber.aboutactors.actors.AASupervisor
+import dev.nateschieber.aboutactors.enums.AAHttpPort
 
 import java.awt.Desktop
 import java.net.URI
@@ -15,14 +16,14 @@ object AboutActorsApplication {
   @main def main(): Unit = {
     given system: ActorSystem[Nothing] = ActorSystem(AASupervisor(), "aa_application")
 
-    lazy val server = Http().newServerAt("localhost", 4200).bind(routes())
+    lazy val server = Http().newServerAt("localhost", AAHttpPort.AAApplication.port).bind(routes())
 
     server.map(_ => {
       //
     })
 
     if (Desktop.isDesktopSupported && Desktop.getDesktop.isSupported(Desktop.Action.BROWSE))
-      Desktop.getDesktop.browse(new URI("http://localhost:4200/api/v1/hello" ))
+      Desktop.getDesktop.browse(new URI("http://localhost:" + AAHttpPort.AARestController.port ))
   }
 
   private def routes(): Route = {

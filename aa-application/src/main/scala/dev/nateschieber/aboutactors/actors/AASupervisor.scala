@@ -9,6 +9,8 @@ object AASupervisor {
   def apply(): Behavior[Nothing] = Behaviors.setup {
     context =>
       println("starting AASupervisor")
+
+      val aaRestController = context.spawn(AARestController(), "aa_rest_controller")
       new AASupervisor(context)
   }
 }
