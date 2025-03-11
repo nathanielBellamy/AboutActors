@@ -10,6 +10,7 @@ object AASupervisor {
     context =>
       println("starting AASupervisor")
 
+      val aaWebsocketController = context.spawn(AAWebsocketController(), "aa_websocket_controller")
       val aaRestController = context.spawn(AARestController(), "aa_rest_controller")
       new AASupervisor(context)
   }
