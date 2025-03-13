@@ -4,6 +4,7 @@ import akka.actor.typed.{Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
+import dev.nateschieber.aboutactors.ProvideSelfRef
 
 object Supervisor {
   def apply(): Behavior[Nothing] = Behaviors.setup {
@@ -11,6 +12,7 @@ object Supervisor {
       println("starting Supervisor")
 
       val websocketController = context.spawn(WebsocketController(), "websocket_controller")
+      websocketController ! ProvideSelfRef(websocketController)
       val restController = context.spawn(RestController(), "rest_controller")
       new Supervisor(context)
   }

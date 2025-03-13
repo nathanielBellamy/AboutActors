@@ -7,7 +7,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import dev.nateschieber.aboutactors.Message
+import dev.nateschieber.aboutactors.AbtActMessage
 import dev.nateschieber.aboutactors.enums.HttpPort
 
 import scala.concurrent.Await
@@ -17,9 +17,9 @@ import spray.json.*
 
 object RestController {
 
-  private val restControllerServiceKey = ServiceKey[Message]("rest_controller")
+  private val restControllerServiceKey = ServiceKey[AbtActMessage]("rest_controller")
 
-  def apply(): Behavior[Message] = Behaviors.setup {
+  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
@@ -40,8 +40,8 @@ object RestController {
 }
 
 class RestController(
-                        context: ActorContext[Message])
-  extends AbstractBehavior[Message](context) {
+                        context: ActorContext[AbtActMessage])
+  extends AbstractBehavior[AbtActMessage](context) {
 
   def routes(): Route = {
     concat(
@@ -54,7 +54,7 @@ class RestController(
     )
   }
 
-  override def onMessage(msg: Message): Behavior[Message] = {
+  override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     Behaviors.same
   }
 }
