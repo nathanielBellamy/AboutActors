@@ -90,7 +90,13 @@ class AAWebsocketController(context: ActorContext[AAMessage]) extends AbstractBe
   }
 
   def sendWebsocketMsg(uuid: String, text: String): Unit = {
-    browserConnections(uuid)(TextMessage.Strict(s"\"$text\""))
+    val connOpt = browserConnections.get(uuid)
+    if (connOpt.isDefined) {
+      val conn = connOpt.get
+      conn(TextMessage.Strict(s"\"$text\""))
+    } else {
+      println(s"Websocket connection not found for uuid: $uuid")
+    }
   }
 
   def pushWebsocketMsg(text: String): Unit = {
