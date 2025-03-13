@@ -1,4 +1,4 @@
-import {Component, OnInit} from '@angular/core';
+import {Component} from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import {WebSocketSubject} from 'rxjs/internal/observable/dom/WebSocketSubject';
 import {webSocket} from 'rxjs/webSocket';
@@ -10,13 +10,10 @@ import {webSocket} from 'rxjs/webSocket';
   templateUrl: './app.component.html',
   styleUrl: './app.component.sass'
 })
-export class AppComponent implements OnInit {
+export class AppComponent {
   title = 'about-actors-frontend';
   private wsSubject: WebSocketSubject<any> = this.getWsSubject();
   private cookie: string = "";
-
-  ngOnInit() {
-  }
 
   protected sendWebsocketMessage(msg: string) {
     this.wsSubject.next(`${this.cookie}::${msg}`);
@@ -40,7 +37,7 @@ export class AppComponent implements OnInit {
             const msgStr: string = msg as string;
             if (msgStr.startsWith('cookie::')) {
               this.cookie = msgStr.split('::')[1];
-
+              this.sendWebsocketMessage("valid");
             }
           }
         },

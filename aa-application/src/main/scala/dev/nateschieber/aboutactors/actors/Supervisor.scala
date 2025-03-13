@@ -5,18 +5,18 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 
-object AASupervisor {
+object Supervisor {
   def apply(): Behavior[Nothing] = Behaviors.setup {
     context =>
-      println("starting AASupervisor")
+      println("starting Supervisor")
 
-      val aaWebsocketController = context.spawn(AAWebsocketController(), "aa_websocket_controller")
-      val aaRestController = context.spawn(AARestController(), "aa_rest_controller")
-      new AASupervisor(context)
+      val websocketController = context.spawn(WebsocketController(), "websocket_controller")
+      val restController = context.spawn(RestController(), "rest_controller")
+      new Supervisor(context)
   }
 }
 
-class AASupervisor(context: ActorContext[Nothing]) extends AbstractBehavior[Nothing](context) {
+class Supervisor(context: ActorContext[Nothing]) extends AbstractBehavior[Nothing](context) {
 
   override def onMessage(msg: Nothing): Behavior[Nothing] = {
     Behaviors.unhandled

@@ -7,32 +7,30 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import dev.nateschieber.aboutactors.AAMessage
-import dev.nateschieber.aboutactors.enums.AAHttpPort
+import dev.nateschieber.aboutactors.Message
+import dev.nateschieber.aboutactors.enums.HttpPort
 
 import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.*
 import spray.json.*
 
-object AARestController {
+object RestController {
 
-  private var appStateCacheFile: String = "__GROOVE_SPRINGS__LAST_STATE__.json"
+  private val restControllerServiceKey = ServiceKey[Message]("rest_controller")
 
-  val AARestControllerServiceKey = ServiceKey[AAMessage]("aa_rest_controller")
-
-  def apply(): Behavior[AAMessage] = Behaviors.setup {
+  def apply(): Behavior[Message] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
-      val aaRestController = new AARestController(context)
+      val aaRestController = new RestController(context)
 
       lazy val server = Http()
-        .newServerAt("localhost", AAHttpPort.AARestController.port)
+        .newServerAt("localhost", HttpPort.RestController.port)
         .bind(aaRestController.routes())
 
       server.map { _ =>
-        println("AARestControllerServer online at localhost:" + AAHttpPort.AARestController.port)
+        println("AARestControllerServer online at localhost:" + HttpPort.RestController.port)
       } recover { case ex =>
         println(ex.getMessage)
       }
@@ -41,9 +39,9 @@ object AARestController {
   }
 }
 
-class AARestController(
-                        context: ActorContext[AAMessage])
-  extends AbstractBehavior[AAMessage](context) {
+class RestController(
+                        context: ActorContext[Message])
+  extends AbstractBehavior[Message](context) {
 
   def routes(): Route = {
     concat(
@@ -56,7 +54,7 @@ class AARestController(
     )
   }
 
-  override def onMessage(msg: AAMessage): Behavior[AAMessage] = {
+  override def onMessage(msg: Message): Behavior[Message] = {
     Behaviors.same
   }
 }

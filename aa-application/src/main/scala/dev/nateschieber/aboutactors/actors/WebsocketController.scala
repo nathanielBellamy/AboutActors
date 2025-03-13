@@ -14,33 +14,33 @@ import akka.http.scaladsl.server.Route
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
-import dev.nateschieber.aboutactors.enums.AAHttpPort
-import dev.nateschieber.aboutactors.{AAMessage, UserAddedDevice}
+import dev.nateschieber.aboutactors.enums.HttpPort
+import dev.nateschieber.aboutactors.{Message, UserAddedDevice}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
 import scala.language.postfixOps
 import scala.util.matching.Regex
 
-object AAWebsocketController {
+object WebsocketController {
 
-  val AAWebsocketControllerServiceKey = ServiceKey[AAMessage]("aa_websocket_controller")
+  private val WebsocketControllerServiceKey = ServiceKey[Message]("aa_websocket_controller")
 
-  def apply(): Behavior[AAMessage] = Behaviors.setup {
+  def apply(): Behavior[Message] = Behaviors.setup {
     context =>
-      context.system.receptionist ! Receptionist.Register(AAWebsocketControllerServiceKey, context.self)
+      context.system.receptionist ! Receptionist.Register(WebsocketControllerServiceKey, context.self)
 
       given system: ActorSystem[Nothing] = context.system
 
-      val aaWebsocketController = new AAWebsocketController(context)
+      val aaWebsocketController = new WebsocketController(context)
 
       lazy val server = Http()
-        .newServerAt("localhost", AAHttpPort.AAWebsocketController.port)
+        .newServerAt("localhost", HttpPort.WebsocketController.port)
         .adaptSettings(_.mapWebsocketSettings(_.withPeriodicKeepAliveMode("ping")))
         .bind(aaWebsocketController.route)
 
       server.map { _ =>
-        println("AAWebsocketControllerServer online at localhost:" + AAHttpPort.AAWebsocketController.port)
+        println("AAWebsocketControllerServer online at localhost:" + HttpPort.WebsocketController.port)
       } recover { case ex =>
         println(ex.getMessage)
       }
@@ -49,7 +49,7 @@ object AAWebsocketController {
   }
 }
 
-class AAWebsocketController(context: ActorContext[AAMessage]) extends AbstractBehavior[AAMessage](context) {
+class WebsocketController(context: ActorContext[Message]) extends AbstractBehavior[Message](context) {
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
 
@@ -64,18 +64,15 @@ class AAWebsocketController(context: ActorContext[AAMessage]) extends AbstractBe
       }
     }
 
-  def websocketFlow: Flow[Message, Message, Any] = {
+  private def websocketFlow: Flow[Message, Message, Any] = {
     // based on https://github.com/JannikArndt/simple-akka-websocket-server-push/blob/master/src/main/scala/WebSocket.scala
     val inbound: Sink[Message, Any] = Sink.foreach(msg => {
       println("received message")
       if (msg.isText) {
         val msgStr: String = msg.asTextMessage.getStrictText
         msgStr match {
-          case cookieMessagePattern(uuid, mmsg) =>
-            println(s"uuid $uuid :wowza: msg $mmsg")
-            sendWebsocketMsg(uuid, "only to you")
-          case default =>
-            println("AAWebsocketController::Unrecognized incoming message:" + msgStr)
+          case cookieMessagePattern(uuid, mmsg) => handleCookieMessage(uuid, mmsg)
+          case default => println("WebsocketController::Unrecognized incoming message:" + msgStr)
         }
       }
     }) // frontend pings to keep alive, but backend does not use pings
@@ -84,33 +81,51 @@ class AAWebsocketController(context: ActorContext[AAMessage]) extends AbstractBe
     Flow.fromSinkAndSourceMat(inbound, outbound)((inboundMat, outboundMat) => {
       val uuid = java.util.UUID.randomUUID.toString
       browserConnections.put(uuid, outboundMat.offer)
-      browserConnections(uuid)(TextMessage.Strict("\"cookie::" + uuid + "\""))
+      browserConnections(uuid)(toTextMessage("cookie::" + uuid))
       NotUsed
     })
   }
 
-  def sendWebsocketMsg(uuid: String, text: String): Unit = {
+  private def sendWebsocketMsg(uuid: String, text: String): Unit = {
     val connOpt = browserConnections.get(uuid)
     if (connOpt.isDefined) {
       val conn = connOpt.get
-      conn(TextMessage.Strict(s"\"$text\""))
+      conn(toTextMessage(text))
     } else {
       println(s"Websocket connection not found for uuid: $uuid")
     }
   }
 
-  def pushWebsocketMsg(text: String): Unit = {
-    for ((uuid,conn) <- browserConnections) conn(TextMessage.Strict(s"\"$text\""))
+  private def pushWebsocketMsg(text: String): Unit = {
+    for ((uuid,conn) <- browserConnections) conn(toTextMessage(text))
   }
 
-  override def onMessage(msg: AAMessage): Behavior[AAMessage] = {
+  private def toTextMessage(str: String): TextMessage = {
+    TextMessage.Strict(wrapQuotes(str))
+  }
+
+  private def wrapQuotes(str: String): String = {
+    s"\"$str\""
+  }
+
+  private def handleCookieMessage(uuid: String, msg: message): Unit = {
+    mmsg match {
+      case "valid" => context.spawn(UserSession(uuid), uuid)
+      case default =>
+        println(s"WebsocketController::Unrecognized websocket message from user sessionId: $uuid")
+    }
+    println(s"uuid $uuid :wowza: msg $mmsg")
+    sendWebsocketMsg(uuid, "only to you")
+  }
+
+  override def onMessage(msg: Message): Behavior[Message] = {
     msg match {
       case UserAddedDevice() =>
-        println("AAWebsocketController UserAddedDevice")
+        println("WebsocketController UserAddedDevice")
         Behaviors.same
 
       case default =>
-        println("AAWebsocketController::UnMatchedMethod")
+        println("WebsocketController::UnMatchedMethod")
         Behaviors.same
     }
   }
