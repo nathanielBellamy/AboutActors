@@ -20,6 +20,7 @@ import dev.nateschieber.aboutactors.{AAMessage, UserAddedDevice}
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
 import scala.language.postfixOps
+import scala.util.matching.Regex
 
 object AAWebsocketController {
 
@@ -52,7 +53,9 @@ class AAWebsocketController(context: ActorContext[AAMessage]) extends AbstractBe
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
 
-  private var browserConnections: List[TextMessage => Unit] = List()
+  private val browserConnections = scala.collection.mutable.Map[String, TextMessage => Unit]()
+
+  private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
 
   val route: Route =
     path("aa-websocket") {
@@ -63,17 +66,35 @@ class AAWebsocketController(context: ActorContext[AAMessage]) extends AbstractBe
 
   def websocketFlow: Flow[Message, Message, Any] = {
     // based on https://github.com/JannikArndt/simple-akka-websocket-server-push/blob/master/src/main/scala/WebSocket.scala
-    val inbound: Sink[Message, Any] = Sink.foreach(_ => ()) // frontend pings to keep alive, but backend does not use pings
+    val inbound: Sink[Message, Any] = Sink.foreach(msg => {
+      println("received message")
+      if (msg.isText) {
+        val msgStr: String = msg.asTextMessage.getStrictText
+        msgStr match {
+          case cookieMessagePattern(uuid, mmsg) =>
+            println(s"uuid $uuid :wowza: msg $mmsg")
+            sendWebsocketMsg(uuid, "only to you")
+          case default =>
+            println("AAWebsocketController::Unrecognized incoming message:" + msgStr)
+        }
+      }
+    }) // frontend pings to keep alive, but backend does not use pings
     val outbound: Source[Message, SourceQueueWithComplete[Message]] = Source.queue[Message](16, OverflowStrategy.fail)
 
-    Flow.fromSinkAndSourceMat(inbound, outbound)((_, outboundMat) => {
-      browserConnections ::= outboundMat.offer
+    Flow.fromSinkAndSourceMat(inbound, outbound)((inboundMat, outboundMat) => {
+      val uuid = java.util.UUID.randomUUID.toString
+      browserConnections.put(uuid, outboundMat.offer)
+      browserConnections(uuid)(TextMessage.Strict("\"cookie::" + uuid + "\""))
       NotUsed
     })
   }
 
-  def sendWebsocketMsg(text: String): Unit = {
-    for (connection <- browserConnections) connection(TextMessage.Strict(text))
+  def sendWebsocketMsg(uuid: String, text: String): Unit = {
+    browserConnections(uuid)(TextMessage.Strict(s"\"$text\""))
+  }
+
+  def pushWebsocketMsg(text: String): Unit = {
+    for ((uuid,conn) <- browserConnections) conn(TextMessage.Strict(s"\"$text\""))
   }
 
   override def onMessage(msg: AAMessage): Behavior[AAMessage] = {
