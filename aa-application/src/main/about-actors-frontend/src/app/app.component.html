@@ -1,14 +1,18 @@
 <div class="size-full grid grid-rows-2 grid-cols-10">
   <div class="row-span-2 col-span-6">
-    <div class="text-xl font-bold">
+    <div class="text-xl font-bold ">
       About Actors
     </div>
-    <button
-      class="border-2 rounded-md "
-      (click)="handleClick()">
-      Send it
-    </button>
-
+    <div class="flex gap-4">
+      <div class="font-bold">
+        Example Buttons:
+      </div>
+      <button
+        class="border-2 rounded-md "
+        (click)="handleFailToStartUserSessionClick()">
+        UserSessionInitFail
+      </button>
+    </div>
   </div>
   <div class="row-span-2 col-span-4 flex flex-col items-stretch">
     @for (entry of log; track entry) {
@@ -17,5 +21,4 @@
       </div>
     }
   </div>
-
 </div>

@@ -116,7 +116,7 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
   }
 
   private def handleCookieMessage(uuid: String, msg: String): Unit = {
-    println(s"uuid $uuid :wowza: msg $msg")
+    println(s"uuid $uuid :: msg $msg")
     if (uuid.isBlank || uuid.isEmpty) {
       println(s"WebsocketController::Received message with no uuid: $msg")
     }
@@ -124,11 +124,13 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
       case "valid" =>
         println(s"WebsocketController::Received valid message from uuid: $uuid")
         try {
-          selfRef ! WsInitUserSession(uuid)
+          selfRef ! WsInitUserSession(uuid, "start")
         } catch {
           case e: Any =>  println(s"WebsocketController::An error occurred spawning UserSession sessionId $uuid : ${e.toString}")
           case default => println(s"WebsocketController::An error occurred spawning UserSession sessionId $uuid")
         }
+      case "fail-user-session" =>
+        selfRef ! WsInitUserSession(uuid, "fail")
       case default =>
         println(s"WebsocketController::Unrecognized websocket message from user sessionId: $uuid")
     }
@@ -140,8 +142,8 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
         selfRef = self
         Behaviors.same
 
-      case WsInitUserSession(uuid) =>
-        userSessionManager ! InitUserSession(uuid, context.self)
+      case WsInitUserSession(uuid, msg) =>
+        userSessionManager ! InitUserSession(uuid, msg, context.self)
         Behaviors.same
 
       case InitUserSessionSuccess(uuid) =>

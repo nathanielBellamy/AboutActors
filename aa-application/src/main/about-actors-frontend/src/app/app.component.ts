@@ -21,9 +21,8 @@ export class AppComponent {
     this.wsSubject.next(`${this.cookie}::${msg}`);
   }
 
-  protected handleClick() {
-    console.log("click")
-    this.sendWebsocketMessage("hello from me");
+  protected handleFailToStartUserSessionClick() {
+    this.sendWebsocketMessage("fail-user-session");
   }
 
   private getWsSubject(): WebSocketSubject<any> {

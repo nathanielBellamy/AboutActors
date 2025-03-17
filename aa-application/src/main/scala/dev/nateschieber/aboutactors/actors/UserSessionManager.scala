@@ -23,7 +23,11 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     msg match {
-      case InitUserSession(uuid, replyTo) =>
+      case InitUserSession(uuid, msg, replyTo) =>
+        if (msg == "fail") {
+          replyTo ! InitUserSessionFailure(uuid)
+          return Behaviors.same
+        }
         val session = context.spawn(UserSession(uuid), s"user_session_$uuid")
         if (session == null) {
           replyTo ! InitUserSessionFailure(uuid)
