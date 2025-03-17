@@ -16,7 +16,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors.enums.HttpPort
-import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, ProvideSelfRef, UserAddedDevice, WsInitUserSession}
+import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideSelfRef, UserAddedDevice, WsInitUserSession}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -132,7 +132,6 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
       case default =>
         println(s"WebsocketController::Unrecognized websocket message from user sessionId: $uuid")
     }
-    sendWebsocketMsg(uuid, "only to you")
   }
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] =
@@ -143,6 +142,14 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
 
       case WsInitUserSession(uuid) =>
         userSessionManager ! InitUserSession(uuid, context.self)
+        Behaviors.same
+
+      case InitUserSessionSuccess(uuid) =>
+        sendWebsocketMsg(uuid, "Successfully initialized user session")
+        Behaviors.same
+
+      case InitUserSessionFailure(uuid) =>
+        sendWebsocketMsg(uuid, "Unable to initialize user session")
         Behaviors.same
 
       case UserAddedDevice() =>

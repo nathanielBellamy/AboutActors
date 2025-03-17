@@ -15,6 +15,8 @@ export class AppComponent {
   private wsSubject: WebSocketSubject<any> = this.getWsSubject();
   private cookie: string = "";
 
+  protected log: string[] = [];
+
   protected sendWebsocketMessage(msg: string) {
     this.wsSubject.next(`${this.cookie}::${msg}`);
   }
@@ -33,7 +35,7 @@ export class AppComponent {
       .subscribe({
         next: (msg: unknown) => {
           if (typeof msg === 'string') {
-            console.log(msg)
+            this.log.push(`[${new Date().toISOString()}] :: WS Message :: ${msg}`);
             const msgStr: string = msg as string;
             if (msgStr.startsWith('cookie::')) {
               this.cookie = msgStr.split('::')[1];

@@ -6,5 +6,7 @@ sealed trait AbtActMessage
 
 final case class ProvideSelfRef(selfRef: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class WsInitUserSession(uuid: String) extends AbtActMessage
-final case class InitUserSession(uuid: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class InitUserSession(uuid: String, replyTo: ActorRef[InitUserSessionSuccess | InitUserSessionFailure]) extends AbtActMessage
+final case class InitUserSessionSuccess(uuid: String) extends AbtActMessage
+final case class InitUserSessionFailure(uuid: String) extends AbtActMessage
 final case class UserAddedDevice() extends AbtActMessage

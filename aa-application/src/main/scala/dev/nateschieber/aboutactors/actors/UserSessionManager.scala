@@ -4,7 +4,7 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession}
+import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess}
 
 object UserSessionManager {
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
@@ -25,7 +25,13 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
     msg match {
       case InitUserSession(uuid, replyTo) =>
         val session = context.spawn(UserSession(uuid), s"user_session_$uuid")
-        userSessions.put(uuid, session)
+        if (session == null) {
+          replyTo ! InitUserSessionFailure(uuid)
+        } else {
+          userSessions.put(uuid, session)
+          replyTo ! InitUserSessionSuccess(uuid)
+        }
+
         Behaviors.same
 
       case default =>
