@@ -16,7 +16,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors.enums.HttpPort
-import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideSelfRef, UserAddedDevice, WsInitUserSession}
+import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideSelfRef, UserAddedItemToCartSuccess, WsInitUserSession}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -154,7 +154,7 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
         sendWebsocketMsg(uuid, "Unable to initialize user session")
         Behaviors.same
 
-      case UserAddedDevice() =>
+      case UserAddedItemToCartSuccess(itemId, userSessionUuid, replyTo) =>
         println("WebsocketController::UserAddedDevice")
         Behaviors.same
 
