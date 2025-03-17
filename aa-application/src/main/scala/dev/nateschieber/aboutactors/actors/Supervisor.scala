@@ -11,7 +11,8 @@ object Supervisor {
     context =>
       println("starting Supervisor")
 
-      val websocketController = context.spawn(WebsocketController(), "websocket_controller")
+      val userSessionManager = context.spawn(UserSessionManager(), "user_session_manager")
+      val websocketController = context.spawn(WebsocketController(userSessionManager), "websocket_controller")
       websocketController ! ProvideSelfRef(websocketController)
       val restController = context.spawn(RestController(), "rest_controller")
       new Supervisor(context)

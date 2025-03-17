@@ -21,9 +21,8 @@ object UserSession {
 }
 
 class UserSession(context: ActorContext[AbtActMessage], uuid: String) extends AbstractBehavior[AbtActMessage](context) {
-
   private val sessionId: String = uuid
-
+  
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     Behaviors.unhandled
   }

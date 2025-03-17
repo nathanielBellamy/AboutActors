@@ -16,7 +16,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors.enums.HttpPort
-import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, ProvideSelfRef, UserAddedDevice}
+import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, ProvideSelfRef, UserAddedDevice, WsInitUserSession}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -27,13 +27,13 @@ object WebsocketController {
 
   private val WebsocketControllerServiceKey = ServiceKey[AbtActMessage]("aa_websocket_controller")
 
-  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(userSessionManagerRef: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       context.system.receptionist ! Receptionist.Register(WebsocketControllerServiceKey, context.self)
 
       given system: ActorSystem[Nothing] = context.system
 
-      val aaWebsocketController = new WebsocketController(context)
+      val aaWebsocketController = new WebsocketController(context, userSessionManagerRef)
 
       lazy val server = Http()
         .newServerAt("localhost", HttpPort.WebsocketController.port)
@@ -50,13 +50,17 @@ object WebsocketController {
   }
 }
 
-class WebsocketController(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
+class WebsocketController(context: ActorContext[AbtActMessage], userSessionManagerRef: ActorRef[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
 
   private val browserConnections = scala.collection.mutable.Map[String, TextMessage => Unit]()
 
+  private val userSessionManager: ActorRef[AbtActMessage] = userSessionManagerRef
+
   private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
+
+
 
   var selfRef: ActorRef[AbtActMessage] = null
 
@@ -120,7 +124,7 @@ class WebsocketController(context: ActorContext[AbtActMessage]) extends Abstract
       case "valid" =>
         println(s"WebsocketController::Received valid message from uuid: $uuid")
         try {
-          selfRef ! InitUserSession(uuid)
+          selfRef ! WsInitUserSession(uuid)
         } catch {
           case e: Any =>  println(s"WebsocketController::An error occurred spawning UserSession sessionId $uuid : ${e.toString}")
           case default => println(s"WebsocketController::An error occurred spawning UserSession sessionId $uuid")
@@ -137,8 +141,8 @@ class WebsocketController(context: ActorContext[AbtActMessage]) extends Abstract
         selfRef = self
         Behaviors.same
 
-      case InitUserSession(uuid) =>
-        val session = context.spawn(UserSession(uuid), s"user_session_$uuid")
+      case WsInitUserSession(uuid) =>
+        userSessionManager ! InitUserSession(uuid, context.self)
         Behaviors.same
 
       case UserAddedDevice() =>
