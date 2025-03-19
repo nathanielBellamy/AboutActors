@@ -4,7 +4,7 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 object UserSessionManager {
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
@@ -20,9 +20,14 @@ object UserSessionManager {
 class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
 
   private val userSessions = scala.collection.mutable.Map[String, ActorRef[AbtActMessage]]()
+  private var websocketController: ActorRef[AbtActMessage] = null
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     msg match {
+      case ProvideWebsocketControllerRef(wscRef) =>
+        websocketController = wscRef
+        Behaviors.same
+
       case InitUserSession(uuid, msg, replyTo) =>
         if (msg == "fail") {
           replyTo ! InitUserSessionFailure(uuid)
@@ -35,7 +40,18 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
           userSessions.put(uuid, session)
           replyTo ! InitUserSessionSuccess(uuid)
         }
+        Behaviors.same
 
+      case UserAddedItemToCart(itemId, sessionId, inventoryManager) => 
+        userSessions.get(sessionId).get ! AddItemToCart(itemId, inventoryManager)
+        Behaviors.same
+        
+      case UserAddedItemToCartSuccess(itemId, sessionId, replyTo) =>
+        userSessions.get(sessionId).get ! ItemAddedToCart(itemId, websocketController)
+        Behaviors.same
+
+      case UserAddedItemToCartFailure(itemId, sessionId, replyTo) =>
+        userSessions.get(sessionId).get ! ItemNotAddedToCart(itemId, websocketController)
         Behaviors.same
 
       case default =>

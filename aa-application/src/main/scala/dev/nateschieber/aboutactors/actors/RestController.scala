@@ -7,7 +7,8 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import dev.nateschieber.aboutactors.AbtActMessage
+import dev.nateschieber.aboutactors.{AbtActMessage, UserAddedItemToCart}
+import dev.nateschieber.aboutactors.dto.{AddItemToCartDto, AddItemToCartJsonSupport}
 import dev.nateschieber.aboutactors.enums.HttpPort
 
 import scala.concurrent.Await
@@ -19,11 +20,11 @@ object RestController {
 
   private val restControllerServiceKey = ServiceKey[AbtActMessage]("rest_controller")
 
-  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(websocketController: ActorRef[AbtActMessage], userSessionManager: ActorRef[AbtActMessage], inventoryManager: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
-      val aaRestController = new RestController(context)
+      val aaRestController = new RestController(context, websocketController, userSessionManager, inventoryManager)
 
       lazy val server = Http()
         .newServerAt("localhost", HttpPort.RestController.port)
@@ -40,11 +41,29 @@ object RestController {
 }
 
 class RestController(
-                        context: ActorContext[AbtActMessage])
-  extends AbstractBehavior[AbtActMessage](context) {
+                        context: ActorContext[AbtActMessage],
+                        websocketControllerIn: ActorRef[AbtActMessage],
+                        userSessionManagerIn: ActorRef[AbtActMessage],
+                        inventoryManagerIn: ActorRef[AbtActMessage]
+                    )
+  extends AbstractBehavior[AbtActMessage](context)
+    with AddItemToCartJsonSupport
+  {
+
+  private val inventoryManager: ActorRef[AbtActMessage] = inventoryManagerIn
+  private val websocketController: ActorRef[AbtActMessage] = websocketControllerIn
+  private val userSessionManager: ActorRef[AbtActMessage] = userSessionManagerIn
 
   def routes(): Route = {
     concat(
+      path("/add-item-to-cart") {
+        post {
+          entity(as[AddItemToCartDto]) { dto => {
+            userSessionManager ! UserAddedItemToCart(dto.itemId, dto.sessionId, inventoryManager)
+            complete("ok")
+          }}
+        }
+      },
       path("") { //the same prefix must be set as base href in index.html
         getFromResource("frontend-dist/browser/index.html")
       } ~ pathPrefix("") {

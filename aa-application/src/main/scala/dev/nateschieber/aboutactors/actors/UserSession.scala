@@ -1,11 +1,13 @@
 package dev.nateschieber.aboutactors.actors
 
-import akka.actor.typed.receptionist.ServiceKey
 import akka.actor.typed.{ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.AbtActMessage
+import dev.nateschieber.aboutactors.dto.UserSessionDto
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, HydrateUserSession, ItemAddedToCart, ItemNotAddedToCart, RequestToAddItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+
+import scala.collection.mutable.ListBuffer
 
 object UserSession {
   def apply(uuid: String): Behavior[AbtActMessage] = Behaviors.setup {
@@ -22,8 +24,26 @@ object UserSession {
 
 class UserSession(context: ActorContext[AbtActMessage], uuid: String) extends AbstractBehavior[AbtActMessage](context) {
   private val sessionId: String = uuid
+  private val itemIds: ListBuffer[String] = ListBuffer()
   
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
-    Behaviors.unhandled
+    msg match {
+      case AddItemToCart(itemId, inventoryManager) =>
+        inventoryManager ! RequestToAddItemToCart(itemId, sessionId, context.self)
+        Behaviors.same
+
+      case ItemAddedToCart(itemId, websocketController) =>
+        itemIds.addOne(itemId)
+        val dto = UserSessionDto(sessionId, itemIds.toList)
+        websocketController ! HydrateUserSession(dto)
+        Behaviors.same
+
+      case ItemNotAddedToCart(itemId, websocketController) =>
+        websocketController ! UserAddedItemToCartFailure(sessionId, itemId, context.self)
+        Behaviors.same
+
+      case default =>
+        Behaviors.same
+    }
   }
 }

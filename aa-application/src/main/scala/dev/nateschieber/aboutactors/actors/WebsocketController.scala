@@ -16,7 +16,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors.enums.HttpPort
-import dev.nateschieber.aboutactors.{AbtActMessage, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideSelfRef, UserAddedItemToCartSuccess, WsInitUserSession}
+import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideSelfRef, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, WsInitUserSession}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -53,14 +53,9 @@ object WebsocketController {
 class WebsocketController(context: ActorContext[AbtActMessage], userSessionManagerRef: ActorRef[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
-
   private val browserConnections = scala.collection.mutable.Map[String, TextMessage => Unit]()
-
   private val userSessionManager: ActorRef[AbtActMessage] = userSessionManagerRef
-
   private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
-
-
 
   var selfRef: ActorRef[AbtActMessage] = null
 
@@ -154,8 +149,16 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
         sendWebsocketMsg(uuid, "Unable to initialize user session")
         Behaviors.same
 
-      case UserAddedItemToCartSuccess(itemId, userSessionUuid, replyTo) =>
-        println("WebsocketController::UserAddedDevice")
+      case HydrateUserSession(dto) =>
+        sendWebsocketMsg(dto.sessionId, s"item-ids::${dto.itemIds}")
+        Behaviors.same
+
+      case UserAddedItemToCartFailure(itemId, userSessionUuid, replyTo) =>
+        sendWebsocketMsg(userSessionUuid, s"item-not-added::$itemId")
+        Behaviors.same
+
+      case HydrateAvailableItems(dto) =>
+        pushWebsocketMsg(dto.toString)
         Behaviors.same
 
       case default =>
