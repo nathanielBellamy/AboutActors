@@ -27,27 +27,27 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
 
   private var websocketController: ActorRef[AbtActMessage] = null
 
-  def getAvailableItemsDto(): AvailableItemsDto = {
-    val availableItems = items.keys.filter(k => items.get(k).isEmpty).toList
+  private def getAvailableItemsDto: AvailableItemsDto = {
+    val availableItems = items.keys.filter(k => items.get(k).get.isEmpty).toList
     AvailableItemsDto(availableItems)
   }
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     msg match {
       case RequestToAddItemToCart(itemId, userSessionUuid, userSessionRef) =>
-        items.get(itemId) match {
+        items.get(itemId).get match {
           case Some(_) =>
             // Item already taken
             userSessionRef ! ItemNotAddedToCart(itemId, context.self)
           case None =>
             items.update(itemId, Some(userSessionUuid))
             userSessionRef ! ItemAddedToCart(itemId, context.self)
-            websocketController ! HydrateAvailableItems( getAvailableItemsDto() )
+            websocketController ! HydrateAvailableItems( None, getAvailableItemsDto )
         }
         Behaviors.same
 
-      case HydrateAvailableItemsRequest() =>
-        websocketController ! HydrateAvailableItems( getAvailableItemsDto() )
+      case HydrateAvailableItemsRequest(optUuid) =>
+        websocketController ! HydrateAvailableItems( optUuid, getAvailableItemsDto )
         Behaviors.same
 
       case ProvideWebsocketControllerRef(websocketControllerRef) =>

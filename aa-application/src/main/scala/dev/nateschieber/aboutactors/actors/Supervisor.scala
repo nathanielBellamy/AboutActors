@@ -4,7 +4,7 @@ import akka.actor.typed.{Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{ProvideSelfRef, ProvideWebsocketControllerRef}
+import dev.nateschieber.aboutactors.{ProvideInventoryManagerRef, ProvideSelfRef, ProvideWebsocketControllerRef}
 
 object Supervisor {
   def apply(): Behavior[Nothing] = Behaviors.setup {
@@ -17,6 +17,7 @@ object Supervisor {
       inventoryManager ! ProvideWebsocketControllerRef(websocketController)
       userSessionManager ! ProvideWebsocketControllerRef(websocketController)
       websocketController ! ProvideSelfRef(websocketController)
+      websocketController ! ProvideInventoryManagerRef(inventoryManager)
       val restController = context.spawn(RestController(websocketController, userSessionManager, inventoryManager), "rest_controller")
       new Supervisor(context)
   }

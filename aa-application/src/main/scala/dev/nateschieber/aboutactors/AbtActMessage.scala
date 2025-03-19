@@ -7,14 +7,16 @@ sealed trait AbtActMessage
 
 final case class ProvideSelfRef(selfRef: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class ProvideWebsocketControllerRef(websocketControllerRef: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class ProvideInventoryManagerRef(inventoryManagerRef: ActorRef[AbtActMessage]) extends AbtActMessage
+
 final case class WsInitUserSession(uuid: String, msg: String) extends AbtActMessage
 final case class InitUserSession(uuid: String, msg: String, replyTo: ActorRef[InitUserSessionSuccess | InitUserSessionFailure]) extends AbtActMessage
 final case class InitUserSessionSuccess(uuid: String) extends AbtActMessage
 final case class InitUserSessionFailure(uuid: String) extends AbtActMessage
 
 final case class HydrateUserSession(dto: UserSessionDto) extends AbtActMessage
-final case class HydrateAvailableItemsRequest() extends AbtActMessage
-final case class HydrateAvailableItems(dto: AvailableItemsDto) extends AbtActMessage
+final case class HydrateAvailableItemsRequest(uuid: Option[String]) extends AbtActMessage
+final case class HydrateAvailableItems(uuid: Option[String], dto: AvailableItemsDto) extends AbtActMessage
 
 final case class RequestToAddItemToCart(itemId: String, sessionId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 

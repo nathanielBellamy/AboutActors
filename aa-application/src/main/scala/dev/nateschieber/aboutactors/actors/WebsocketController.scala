@@ -16,7 +16,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors.enums.HttpPort
-import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideSelfRef, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, WsInitUserSession}
+import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideInventoryManagerRef, ProvideSelfRef, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, WsInitUserSession}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -53,9 +53,11 @@ object WebsocketController {
 class WebsocketController(context: ActorContext[AbtActMessage], userSessionManagerRef: ActorRef[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
+  private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
+
   private val browserConnections = scala.collection.mutable.Map[String, TextMessage => Unit]()
   private val userSessionManager: ActorRef[AbtActMessage] = userSessionManagerRef
-  private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
+  private var inventoryManager: ActorRef[AbtActMessage] = null
 
   var selfRef: ActorRef[AbtActMessage] = null
 
@@ -137,12 +139,17 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
         selfRef = self
         Behaviors.same
 
+      case ProvideInventoryManagerRef(inventoryManagerRef) =>
+        inventoryManager = inventoryManagerRef
+        Behaviors.same
+
       case WsInitUserSession(uuid, msg) =>
         userSessionManager ! InitUserSession(uuid, msg, context.self)
         Behaviors.same
 
       case InitUserSessionSuccess(uuid) =>
         sendWebsocketMsg(uuid, "Successfully initialized user session")
+        inventoryManager ! HydrateAvailableItemsRequest( Some(uuid) )
         Behaviors.same
 
       case InitUserSessionFailure(uuid) =>
@@ -150,15 +157,20 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
         Behaviors.same
 
       case HydrateUserSession(dto) =>
-        sendWebsocketMsg(dto.sessionId, s"item-ids::${dto.itemIds}")
+        sendWebsocketMsg(dto.sessionId, s"UserSession::item-ids::${dto.itemIds.mkString(",")}")
         Behaviors.same
 
       case UserAddedItemToCartFailure(itemId, userSessionUuid, replyTo) =>
         sendWebsocketMsg(userSessionUuid, s"item-not-added::$itemId")
         Behaviors.same
 
-      case HydrateAvailableItems(dto) =>
-        pushWebsocketMsg(dto.toString)
+      case HydrateAvailableItems(optUuid, dto) =>
+        optUuid match {
+          case Some(uuid) =>
+            sendWebsocketMsg(uuid, s"available-item-ids::${dto.itemIds.mkString(",")}")
+          case None =>
+            pushWebsocketMsg(s"available-item-ids::${dto.itemIds.mkString(",")}")
+        }
         Behaviors.same
 
       case default =>
