@@ -20,12 +20,12 @@
       <div class="flex flex-col items-stretch gap-2">
         @for (item of availableItems; track item) {
           <div
-            class="w-full flex justify-between">
+            class="w-full flex justify-between border-2 rounded-md bg-green-200 p-4">
             <div class="font-bold">
               Item: {{item}}
             </div>
             <button
-              class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-4"
+              class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-2"
               (click)="handleAddItemToCart(item)">
               Add Item To Cart
             </button>
@@ -37,15 +37,15 @@
       <div class="text-lg font-bold">
         Your Cart:
       </div>
-      <div class="flex flex-col items-stretch gap-2">
+      <div class="flex flex-col items-stretch gap-2 p-4">
         @for (item of cartItems; track item) {
           <div
-            class="w-full flex justify-between">
+            class="w-full flex justify-between border-2 rounded-md bg-blue-200 p-4">
             <div class="font-bold">
               Item: {{item}}
             </div>
             <button
-              class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-4"
+              class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-2"
               (click)="handleRemoveItemFromCart(item)">
               Remove Item From Cart
             </button>

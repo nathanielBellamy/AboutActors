@@ -46,12 +46,12 @@ export class AppComponent {
             }
             if (msgStr.startsWith('available-item-ids::')) {
               const itemsListStr: string = msgStr.split("::")[1];
-              const itemsList: string[] = itemsListStr.split(',');
+              const itemsList: string[] = itemsListStr.split(',').filter(x => x);
               this.availableItems = [...itemsList];
             }
             if (msgStr.startsWith('session-item-ids::')) {
               const itemsListStr: string = msgStr.split("::")[1];
-              const itemsList: string[] = itemsListStr.split(',');
+              const itemsList: string[] = itemsListStr.split(',').filter(x => x);
               this.cartItems = [...itemsList];
             }
           }

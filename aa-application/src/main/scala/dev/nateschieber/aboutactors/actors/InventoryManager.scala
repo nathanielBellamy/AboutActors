@@ -22,7 +22,10 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
 
   private val items = scala.collection.mutable.Map[String, Option[String]](
     "001" -> None,
-    "002" -> None
+    "002" -> None,
+    "003" -> None,
+    "004" -> None,
+    "005" -> None,
   ) // key: itemId, value: owned by userSessionId
 
   private var websocketController: ActorRef[AbtActMessage] = null
