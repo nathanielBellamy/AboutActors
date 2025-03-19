@@ -15,6 +15,10 @@ export class AppComponent {
   private wsSubject: WebSocketSubject<any> = this.getWsSubject();
   private cookie: string = "";
 
+  protected availableItems: string[] = [];
+  protected cartItems: string[] = [];
+
+
   protected log: string[] = [];
 
   protected sendWebsocketMessage(msg: string) {
@@ -40,6 +44,16 @@ export class AppComponent {
               this.cookie = msgStr.split('::')[1];
               this.sendWebsocketMessage("valid");
             }
+            if (msgStr.startsWith('available-item-ids::')) {
+              const itemsListStr: string = msgStr.split("::")[1];
+              const itemsList: string[] = itemsListStr.split(',');
+              this.availableItems = [...itemsList];
+            }
+            if (msgStr.startsWith('session-item-ids::')) {
+              const itemsListStr: string = msgStr.split("::")[1];
+              const itemsList: string[] = itemsListStr.split(',');
+              this.cartItems = [...itemsList];
+            }
           }
         },
         error: console.error,
@@ -47,5 +61,25 @@ export class AppComponent {
       })
 
     return subject;
+  }
+
+  protected async handleAddItemToCart(item: string): Promise<any> {
+    return await fetch('/add-item-to-cart', {
+      method: "POST",
+      body: JSON.stringify({sessionId: this.cookie, itemId: item}),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }).catch(console.error)
+  }
+
+  protected async handleRemoveItemFromCart(item: string): Promise<any> {
+    return await fetch('/remove-item-to-cart', {
+      method: "POST",
+      body: JSON.stringify({sessionId: this.cookie, itemId: item}),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }).catch(console.error)
   }
 }

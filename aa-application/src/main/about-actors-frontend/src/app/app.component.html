@@ -1,5 +1,5 @@
-<div class="size-full grid grid-rows-2 grid-cols-10">
-  <div class="row-span-2 col-span-6">
+<div class="size-full grid grid-rows-2 grid-cols-10 p-4">
+  <div class="row-span-2 col-span-6 p-4 flex flex-col items-stretch gap-4 ">
     <div class="text-xl font-bold ">
       About Actors
     </div>
@@ -12,6 +12,46 @@
         (click)="handleFailToStartUserSessionClick()">
         UserSessionInitFail
       </button>
+    </div>
+    <div class="flex flex-col items-stretch gap-4 border-4 rounded-md p-4">
+      <div class="text-lg font-bold">
+        Available Items:
+      </div>
+      <div class="flex flex-col items-stretch gap-2">
+        @for (item of availableItems; track item) {
+          <div
+            class="w-full flex justify-between">
+            <div class="font-bold">
+              Item: {{item}}
+            </div>
+            <button
+              class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-4"
+              (click)="handleAddItemToCart(item)">
+              Add Item To Cart
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+    <div class="flex flex-col items-stretch gap-4 border-4 rounded-md">
+      <div class="text-lg font-bold">
+        Your Cart:
+      </div>
+      <div class="flex flex-col items-stretch gap-2">
+        @for (item of cartItems; track item) {
+          <div
+            class="w-full flex justify-between">
+            <div class="font-bold">
+              Item: {{item}}
+            </div>
+            <button
+              class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-4"
+              (click)="handleRemoveItemFromCart(item)">
+              Remove Item From Cart
+            </button>
+          </div>
+        }
+      </div>
     </div>
   </div>
   <div class="row-span-2 col-span-4 flex flex-col items-stretch">

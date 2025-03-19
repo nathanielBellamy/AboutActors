@@ -24,19 +24,19 @@ object RestController {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
-      val aaRestController = new RestController(context, websocketController, userSessionManager, inventoryManager)
+      val restController = new RestController(context, websocketController, userSessionManager, inventoryManager)
 
       lazy val server = Http()
         .newServerAt("localhost", HttpPort.RestController.port)
-        .bind(aaRestController.routes())
+        .bind(restController.routes())
 
       server.map { _ =>
-        println("AARestControllerServer online at localhost:" + HttpPort.RestController.port)
+        println("RestControllerServer online at localhost:" + HttpPort.RestController.port)
       } recover { case ex =>
         println(ex.getMessage)
       }
 
-      aaRestController
+      restController
   }
 }
 
@@ -50,13 +50,13 @@ class RestController(
     with AddItemToCartJsonSupport
   {
 
-  private val inventoryManager: ActorRef[AbtActMessage] = inventoryManagerIn
   private val websocketController: ActorRef[AbtActMessage] = websocketControllerIn
   private val userSessionManager: ActorRef[AbtActMessage] = userSessionManagerIn
+  private val inventoryManager: ActorRef[AbtActMessage] = inventoryManagerIn
 
   def routes(): Route = {
     concat(
-      path("/add-item-to-cart") {
+      path("add-item-to-cart") {
         post {
           entity(as[AddItemToCartDto]) { dto => {
             userSessionManager ! UserAddedItemToCart(dto.itemId, dto.sessionId, inventoryManager)

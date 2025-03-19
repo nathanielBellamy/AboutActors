@@ -33,7 +33,7 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
           replyTo ! InitUserSessionFailure(uuid)
           return Behaviors.same
         }
-        val session = context.spawn(UserSession(uuid), s"user_session_$uuid")
+        val session = context.spawn(UserSession(uuid, websocketController), s"user_session_$uuid")
         if (session == null) {
           replyTo ! InitUserSessionFailure(uuid)
         } else {
@@ -42,16 +42,8 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
         }
         Behaviors.same
 
-      case UserAddedItemToCart(itemId, sessionId, inventoryManager) => 
+      case UserAddedItemToCart(itemId, sessionId, inventoryManager) =>
         userSessions.get(sessionId).get ! AddItemToCart(itemId, inventoryManager)
-        Behaviors.same
-        
-      case UserAddedItemToCartSuccess(itemId, sessionId, replyTo) =>
-        userSessions.get(sessionId).get ! ItemAddedToCart(itemId, websocketController)
-        Behaviors.same
-
-      case UserAddedItemToCartFailure(itemId, sessionId, replyTo) =>
-        userSessions.get(sessionId).get ! ItemNotAddedToCart(itemId, websocketController)
         Behaviors.same
 
       case default =>

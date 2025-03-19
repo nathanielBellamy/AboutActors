@@ -157,7 +157,7 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
         Behaviors.same
 
       case HydrateUserSession(dto) =>
-        sendWebsocketMsg(dto.sessionId, s"UserSession::item-ids::${dto.itemIds.mkString(",")}")
+        sendWebsocketMsg(dto.sessionId, s"session-item-ids::${dto.itemIds.mkString(",")}")
         Behaviors.same
 
       case UserAddedItemToCartFailure(itemId, userSessionUuid, replyTo) =>
