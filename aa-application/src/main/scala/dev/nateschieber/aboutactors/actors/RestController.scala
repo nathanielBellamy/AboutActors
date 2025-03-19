@@ -7,7 +7,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import dev.nateschieber.aboutactors.{AbtActMessage, UserAddedItemToCart}
+import dev.nateschieber.aboutactors.{AbtActMessage, UserAddedItemToCart, UserRemovedItemFromCart}
 import dev.nateschieber.aboutactors.dto.{AddItemToCartDto, AddItemToCartJsonSupport}
 import dev.nateschieber.aboutactors.enums.HttpPort
 
@@ -60,6 +60,14 @@ class RestController(
         post {
           entity(as[AddItemToCartDto]) { dto => {
             userSessionManager ! UserAddedItemToCart(dto.itemId, dto.sessionId, inventoryManager)
+            complete("ok")
+          }}
+        }
+      },
+      path("remove-item-from-cart") {
+        post {
+          entity(as[AddItemToCartDto]) { dto => {
+            userSessionManager ! UserRemovedItemFromCart(dto.itemId, dto.sessionId, inventoryManager)
             complete("ok")
           }}
         }

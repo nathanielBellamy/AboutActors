@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateAvailableItemsRequest, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateAvailableItemsRequest, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToRemoveItemFromCart, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 object InventoryManager {
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
@@ -46,6 +46,17 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
             items.update(itemId, Some(userSessionUuid))
             userSessionRef ! ItemAddedToCart(itemId, context.self)
             websocketController ! HydrateAvailableItems( None, getAvailableItemsDto )
+        }
+        Behaviors.same
+
+      case RequestToRemoveItemFromCart(itemId, userSessionUuid, userSessionRef) =>
+        items.get(itemId).get match {
+          case Some(_) =>
+            items.update(itemId, None)
+            userSessionRef ! ItemRemovedFromCart(itemId, context.self)
+            websocketController ! HydrateAvailableItems( None, getAvailableItemsDto )
+          case None =>
+            userSessionRef ! ItemNotRemovedFromCart(itemId, userSessionRef)
         }
         Behaviors.same
 

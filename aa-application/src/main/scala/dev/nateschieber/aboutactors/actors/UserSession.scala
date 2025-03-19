@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.dto.UserSessionDto
-import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, HydrateUserSession, ItemAddedToCart, ItemNotAddedToCart, RequestToAddItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, HydrateUserSession, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, RemoveItemFromCart, RequestToAddItemToCart, RequestToRemoveItemFromCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 import scala.collection.mutable.ListBuffer
 
@@ -24,7 +24,7 @@ object UserSession {
 
 class UserSession(context: ActorContext[AbtActMessage], uuid: String, websocketControllerIn: ActorRef[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
   private val sessionId: String = uuid
-  private val itemIds: ListBuffer[String] = ListBuffer()
+  private var itemIds: ListBuffer[String] = ListBuffer()
   private val websocketController: ActorRef[AbtActMessage] = websocketControllerIn
   
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
@@ -41,6 +41,19 @@ class UserSession(context: ActorContext[AbtActMessage], uuid: String, websocketC
 
       case ItemNotAddedToCart(itemId, inventoryManager) =>
         websocketController ! UserAddedItemToCartFailure(itemId, sessionId, context.self)
+        Behaviors.same
+
+      case RemoveItemFromCart(itemId, inventoryManager) =>
+        inventoryManager ! RequestToRemoveItemFromCart(itemId, sessionId, context.self)
+        Behaviors.same
+
+      case ItemRemovedFromCart(itemId, inventoryManager) =>
+        itemIds = itemIds.filter(id => id != itemId)
+        val dto = UserSessionDto(sessionId, itemIds.toList)
+        websocketController ! HydrateUserSession(dto)
+        Behaviors.same
+
+      case ItemNotRemovedFromCart(itemId, inventoryManager) =>
         Behaviors.same
 
       case default =>

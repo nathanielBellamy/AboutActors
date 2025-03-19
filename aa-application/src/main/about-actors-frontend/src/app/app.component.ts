@@ -74,7 +74,7 @@ export class AppComponent {
   }
 
   protected async handleRemoveItemFromCart(item: string): Promise<any> {
-    return await fetch('/remove-item-to-cart', {
+    return await fetch('/remove-item-from-cart', {
       method: "POST",
       body: JSON.stringify({sessionId: this.cookie, itemId: item}),
       headers: {

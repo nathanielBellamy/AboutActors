@@ -19,10 +19,20 @@ final case class HydrateAvailableItemsRequest(uuid: Option[String]) extends AbtA
 final case class HydrateAvailableItems(uuid: Option[String], dto: AvailableItemsDto) extends AbtActMessage
 
 final case class RequestToAddItemToCart(itemId: String, sessionId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class RequestToRemoveItemFromCart(itemId: String, sessionId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 
 final case class AddItemToCart(itemId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class ItemAddedToCart(itemId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class ItemNotAddedToCart(itemId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+
 final case class UserAddedItemToCart(itemId: String, userSessionUuid: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class UserAddedItemToCartSuccess(itemId: String, userSessionUuid: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class UserAddedItemToCartFailure(itemId: String, userSessionUuid: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+
+final case class RemoveItemFromCart(itemId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class ItemRemovedFromCart(itemId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class ItemNotRemovedFromCart(itemId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+
+final case class UserRemovedItemFromCart(itemId: String, userSessionUuid: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class UserRemovedItemFromCartSuccess(itemId: String, userSessionUuid: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class UserRemovedItemFromCartFailure(itemId: String, userSessionUuid: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage

@@ -4,7 +4,7 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, RemoveItemFromCart, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, UserRemovedItemFromCart}
 
 object UserSessionManager {
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
@@ -44,6 +44,10 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
 
       case UserAddedItemToCart(itemId, sessionId, inventoryManager) =>
         userSessions.get(sessionId).get ! AddItemToCart(itemId, inventoryManager)
+        Behaviors.same
+
+      case UserRemovedItemFromCart(itemId, sessionId, inventoryManager) =>
+        userSessions.get(sessionId).get ! RemoveItemFromCart(itemId, inventoryManager)
         Behaviors.same
 
       case default =>

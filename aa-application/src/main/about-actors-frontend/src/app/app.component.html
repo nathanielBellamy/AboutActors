@@ -17,7 +17,7 @@
       <div class="text-lg font-bold">
         Available Items:
       </div>
-      <div class="flex flex-col items-stretch gap-2">
+      <div class="flex flex-col items-stretch gap-2 min-h-[300px]">
         @for (item of availableItems; track item) {
           <div
             class="w-full flex justify-between border-2 rounded-md bg-green-200 p-4">
@@ -37,7 +37,7 @@
       <div class="text-lg font-bold">
         Your Cart:
       </div>
-      <div class="flex flex-col items-stretch gap-2 p-4">
+      <div class="flex flex-col items-stretch gap-2 p-4 min-h-[300px]">
         @for (item of cartItems; track item) {
           <div
             class="w-full flex justify-between border-2 rounded-md bg-blue-200 p-4">
