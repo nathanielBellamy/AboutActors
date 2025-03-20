@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateAvailableItemsRequest, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToRemoveItemFromCart, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, HydrateAvailableItems, HydrateAvailableItemsRequest, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 object InventoryManager {
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
@@ -60,6 +60,16 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
           case None =>
             userSessionRef ! ItemNotRemovedFromCart(itemId, userSessionRef)
         }
+        Behaviors.same
+
+      case RequestToEmptyCart(sessionId, userSession) =>
+        for ((itemId, optSessionId) <- items) {
+          if (optSessionId.isDefined && optSessionId.get == sessionId) {
+            items.update(itemId, None)
+          }
+        }
+        websocketController ! HydrateAvailableItems( None , getAvailableItemsDto )
+        userSession ! CartEmptied(context.self)
         Behaviors.same
 
       case HydrateAvailableItemsRequest(optUuid) =>

@@ -7,8 +7,8 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import dev.nateschieber.aboutactors.{AbtActMessage, UserAddedItemToCart, UserRemovedItemFromCart}
-import dev.nateschieber.aboutactors.dto.{AddItemToCartDto, AddItemToCartJsonSupport}
+import dev.nateschieber.aboutactors.{AbtActMessage, TerminateUserSession, UserAddedItemToCart, UserRemovedItemFromCart}
+import dev.nateschieber.aboutactors.dto.{CartItemDto, CartItemJsonSupport, UserSessionIdDto, UserSessionIdJsonSupport}
 import dev.nateschieber.aboutactors.enums.HttpPort
 
 import scala.concurrent.Await
@@ -47,7 +47,8 @@ class RestController(
                         inventoryManagerIn: ActorRef[AbtActMessage]
                     )
   extends AbstractBehavior[AbtActMessage](context)
-    with AddItemToCartJsonSupport
+    with CartItemJsonSupport
+    with UserSessionIdJsonSupport
   {
 
   private val websocketController: ActorRef[AbtActMessage] = websocketControllerIn
@@ -58,7 +59,7 @@ class RestController(
     concat(
       path("add-item-to-cart") {
         post {
-          entity(as[AddItemToCartDto]) { dto => {
+          entity(as[CartItemDto]) { dto => {
             userSessionManager ! UserAddedItemToCart(dto.itemId, dto.sessionId, inventoryManager)
             complete("ok")
           }}
@@ -66,8 +67,16 @@ class RestController(
       },
       path("remove-item-from-cart") {
         post {
-          entity(as[AddItemToCartDto]) { dto => {
+          entity(as[CartItemDto]) { dto => {
             userSessionManager ! UserRemovedItemFromCart(dto.itemId, dto.sessionId, inventoryManager)
+            complete("ok")
+          }}
+        }
+      },
+      path("terminate-user-session") {
+        post {
+          entity(as[UserSessionIdDto]) { dto => {
+            userSessionManager ! TerminateUserSession(dto.sessionId, inventoryManager)
             complete("ok")
           }}
         }

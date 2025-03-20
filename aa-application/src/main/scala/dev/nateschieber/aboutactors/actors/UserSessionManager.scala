@@ -4,7 +4,7 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, RemoveItemFromCart, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, UserRemovedItemFromCart}
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, RemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TerminateUserSession, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, UserRemovedItemFromCart}
 
 object UserSessionManager {
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
@@ -33,7 +33,7 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
           replyTo ! InitUserSessionFailure(uuid)
           return Behaviors.same
         }
-        val session = context.spawn(UserSession(uuid, websocketController), s"user_session_$uuid")
+        val session = context.spawn(UserSession(uuid, websocketController, context.self), s"user_session_$uuid")
         if (session == null) {
           replyTo ! InitUserSessionFailure(uuid)
         } else {
@@ -48,6 +48,15 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
 
       case UserRemovedItemFromCart(itemId, sessionId, inventoryManager) =>
         userSessions.get(sessionId).get ! RemoveItemFromCart(itemId, inventoryManager)
+        Behaviors.same
+
+      case TerminateUserSession(sessionId, inventoryManager) =>
+        userSessions.get(sessionId).get ! TerminateSession(inventoryManager)
+        Behaviors.same
+
+      case TerminateSessionSuccess(sessionId) =>
+        userSessions.remove(sessionId)
+        println(s"Successfully terminated session with sessionId: $sessionId")
         Behaviors.same
 
       case default =>

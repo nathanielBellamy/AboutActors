@@ -3,19 +3,29 @@
     <div class="text-xl font-bold ">
       About Actors
     </div>
-    <div class="flex gap-4">
+    <div class="flex gap-4 p-4">
       <div class="font-bold">
         Example Buttons:
       </div>
+<!--      <button-->
+<!--        class="border-2 rounded-md "-->
+<!--        (click)="handleFailToStartUserSessionClick()">-->
+<!--        UserSessionInitFail-->
+<!--      </button>-->
       <button
-        class="border-2 rounded-md "
-        (click)="handleFailToStartUserSessionClick()">
-        UserSessionInitFail
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300"
+        (click)="handleTerminateUserSession()">
+        Terminate Session
       </button>
     </div>
     <div class="flex flex-col items-stretch gap-4 border-4 rounded-md p-4">
-      <div class="text-lg font-bold">
-        Available Items:
+      <div class="text-lg font-bold w-full flex justify-between">
+        <div>
+          Available Items:
+        </div>
+        <div>
+          ({{ availableItems.length }})
+        </div>
       </div>
       <div class="flex flex-col items-stretch gap-2 min-h-[300px] max-h-[300px] overflow-y-scroll">
         @for (item of availableItems; track item) {
@@ -39,8 +49,13 @@
       </div>
     </div>
     <div class="flex flex-col items-stretch gap-4 border-4 rounded-md p-4">
-      <div class="text-lg font-bold">
-        Your Cart:
+      <div class="text-lg font-bold w-full flex justify-between">
+        <div>
+          Your Cart:
+        </div>
+        <div>
+          ({{ cartItems.length }})
+        </div>
       </div>
       <div class="flex flex-col items-stretch gap-2 p-4 min-h-[300px] max-h-[300px] overflow-y-scroll">
         @for (item of cartItems; track item) {

@@ -83,6 +83,16 @@ export class AppComponent {
     }).catch(console.error)
   }
 
+  protected async handleTerminateUserSession(): Promise<any> {
+    return await fetch('/terminate-user-session', {
+      method: "POST",
+      body: JSON.stringify({sessionId: this.cookie}),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }).catch(console.error)
+  }
+
   protected getItemEmoji(itemId: string): string {
     switch(itemId) {
       case "001":
