@@ -17,12 +17,17 @@
       <div class="text-lg font-bold">
         Available Items:
       </div>
-      <div class="flex flex-col items-stretch gap-2 min-h-[300px]">
+      <div class="flex flex-col items-stretch gap-2 min-h-[300px] max-h-[300px] overflow-y-scroll">
         @for (item of availableItems; track item) {
           <div
             class="w-full flex justify-between border-2 rounded-md bg-green-200 p-4">
             <div class="font-bold">
               Item: {{item}}
+              <span class="text-3xl">
+                {{getItemEmoji(item)}}
+                {{getItemEmoji(item)}}
+                {{getItemEmoji(item)}}
+              </span>
             </div>
             <button
               class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-2"
@@ -33,16 +38,21 @@
         }
       </div>
     </div>
-    <div class="flex flex-col items-stretch gap-4 border-4 rounded-md">
+    <div class="flex flex-col items-stretch gap-4 border-4 rounded-md p-4">
       <div class="text-lg font-bold">
         Your Cart:
       </div>
-      <div class="flex flex-col items-stretch gap-2 p-4 min-h-[300px]">
+      <div class="flex flex-col items-stretch gap-2 p-4 min-h-[300px] max-h-[300px] overflow-y-scroll">
         @for (item of cartItems; track item) {
           <div
             class="w-full flex justify-between border-2 rounded-md bg-blue-200 p-4">
             <div class="font-bold">
-              Item: {{item}}
+              Item: {{item}} -
+              <span class="text-3xl">
+                {{getItemEmoji(item)}}
+                {{getItemEmoji(item)}}
+                {{getItemEmoji(item)}}
+              </span>
             </div>
             <button
               class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-2"
@@ -54,7 +64,7 @@
       </div>
     </div>
   </div>
-  <div class="row-span-2 col-span-4 flex flex-col items-stretch">
+  <div class="row-span-2 col-span-4 flex flex-col items-stretch max-h-[700px] overflow-y-scroll bg-gray-100">
     @for (entry of log; track entry) {
       <div class="font-semibold">
         {{ entry }}

@@ -82,4 +82,25 @@ export class AppComponent {
       }
     }).catch(console.error)
   }
+
+  protected getItemEmoji(itemId: string): string {
+    switch(itemId) {
+      case "001":
+        return "⚾";
+      case "002":
+        return "⚽";
+      case "003":
+        return "🦀";
+      case "004":
+        return "🏈";
+      case "005":
+        return "🎷";
+      case "006":
+        return "⏰";
+      case "007":
+        return "✏️";
+      default:
+        return "🪅"
+    }
+  }
 }

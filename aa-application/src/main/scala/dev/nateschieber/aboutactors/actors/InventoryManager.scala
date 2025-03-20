@@ -26,6 +26,8 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
     "003" -> None,
     "004" -> None,
     "005" -> None,
+    "006" -> None,
+    "007" -> None,
   ) // key: itemId, value: owned by userSessionId
 
   private var websocketController: ActorRef[AbtActMessage] = null
