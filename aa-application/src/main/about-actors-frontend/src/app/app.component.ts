@@ -18,6 +18,7 @@ export class AppComponent {
   protected availableItems: string[] = [];
   protected cartItems: string[] = [];
 
+  protected sessionTerminated: boolean = false;
 
   protected log: string[] = [];
 
@@ -56,7 +57,8 @@ export class AppComponent {
             }
             if (msgStr.startsWith('session-terminated')) {
               this.cartItems = [];
-              this.wsSubject.complete()
+              this.sessionTerminated = true;
+              this.wsSubject.unsubscribe();
             }
           }
         },
