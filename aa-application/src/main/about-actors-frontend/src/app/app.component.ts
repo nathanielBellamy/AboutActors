@@ -99,6 +99,16 @@ export class AppComponent {
     }).catch(console.error)
   }
 
+  protected async handleTriggerError(actorToError: string): Promise<any> {
+    return await fetch('/trigger-error', {
+      method: "POST",
+      body: JSON.stringify({actorToError, sessionId: this.cookie}),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    }).catch(console.error)
+  }
+
   protected getItemEmoji(itemId: string): string {
     switch(itemId) {
       case "001":

@@ -7,8 +7,8 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import dev.nateschieber.aboutactors.{AbtActMessage, TerminateUserSession, UserAddedItemToCart, UserRemovedItemFromCart}
-import dev.nateschieber.aboutactors.dto.{CartItemDto, CartItemJsonSupport, UserSessionIdDto, UserSessionIdJsonSupport}
+import dev.nateschieber.aboutactors.{AbtActMessage, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
+import dev.nateschieber.aboutactors.dto.{CartItemDto, CartItemJsonSupport, TriggerErrorDto, TriggerErrorJsonSupport, UserSessionIdDto, UserSessionIdJsonSupport}
 import dev.nateschieber.aboutactors.enums.HttpPort
 
 import scala.concurrent.Await
@@ -49,6 +49,7 @@ class RestController(
   extends AbstractBehavior[AbtActMessage](context)
     with CartItemJsonSupport
     with UserSessionIdJsonSupport
+    with TriggerErrorJsonSupport
   {
 
   private val websocketController: ActorRef[AbtActMessage] = websocketControllerIn
@@ -78,6 +79,26 @@ class RestController(
           entity(as[UserSessionIdDto]) { dto => {
             userSessionManager ! TerminateUserSession(dto.sessionId, inventoryManager)
             complete("ok")
+          }}
+        }
+      },
+      path("trigger-error") {
+        post {
+          entity(as[TriggerErrorDto]) { dto => {
+            dto.actorToError match {
+              case "websocket-controller" =>
+                websocketController ! TriggerError(None)
+                complete("ok")
+              case "inventory-manager" =>
+                inventoryManager ! TriggerError(None)
+                complete("ok")
+              case "user-session-manager" =>
+                userSessionManager ! TriggerError(None)
+                complete("ok")
+              case "user-session" =>
+                userSessionManager ! TriggerError( Some(dto.sessionId) )
+                complete("ok")
+            }
           }}
         }
       },

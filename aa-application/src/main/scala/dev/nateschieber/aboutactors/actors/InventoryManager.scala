@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, HydrateAvailableItems, HydrateAvailableItemsRequest, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, HydrateAvailableItems, HydrateAvailableItemsRequest, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 object InventoryManager {
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
@@ -79,6 +79,10 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
       case ProvideWebsocketControllerRef(websocketControllerRef) =>
         websocketController = websocketControllerRef
         Behaviors.same
+
+      case TriggerError(_) =>
+        println("Triggering error in Inventory Manager")
+        throw Error("Error Triggered in Inventory Manager")
 
       case default =>
         println("InventoryManager::UnMatchedMethod")

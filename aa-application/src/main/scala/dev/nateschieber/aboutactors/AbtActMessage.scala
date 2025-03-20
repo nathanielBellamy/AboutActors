@@ -43,3 +43,5 @@ final case class UserRemovedItemFromCartFailure(itemId: String, userSessionUuid:
 final case class TerminateUserSession(userSessionUuid: String, inventoryManager: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class TerminateSession(inventoryManager: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class TerminateSessionSuccess(userSessionUuid: String) extends AbtActMessage
+
+final case class TriggerError(optSessionId: Option[String]) extends AbtActMessage
