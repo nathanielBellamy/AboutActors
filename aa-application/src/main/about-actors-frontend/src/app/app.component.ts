@@ -54,10 +54,14 @@ export class AppComponent {
               const itemsList: string[] = itemsListStr.split(',').filter(x => x);
               this.cartItems = [...itemsList];
             }
+            if (msgStr.startsWith('session-terminated')) {
+              this.cartItems = [];
+              this.wsSubject.complete()
+            }
           }
         },
         error: console.error,
-        complete: () => this.wsSubject = this.getWsSubject()
+        complete: () => this.log.push(`[${new Date().toISOString()}] :: Terminated User Session`)
       })
 
     return subject;

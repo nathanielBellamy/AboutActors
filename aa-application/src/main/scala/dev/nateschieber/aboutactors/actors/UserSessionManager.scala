@@ -43,20 +43,28 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
         Behaviors.same
 
       case UserAddedItemToCart(itemId, sessionId, inventoryManager) =>
-        userSessions.get(sessionId).get ! AddItemToCart(itemId, inventoryManager)
+        if (userSessions.contains(sessionId)) {
+          userSessions(sessionId) ! AddItemToCart(itemId, inventoryManager)
+        }
         Behaviors.same
 
       case UserRemovedItemFromCart(itemId, sessionId, inventoryManager) =>
-        userSessions.get(sessionId).get ! RemoveItemFromCart(itemId, inventoryManager)
+        if (userSessions.contains(sessionId)) {
+          userSessions(sessionId) ! RemoveItemFromCart(itemId, inventoryManager)
+        }
         Behaviors.same
 
       case TerminateUserSession(sessionId, inventoryManager) =>
-        userSessions.get(sessionId).get ! TerminateSession(inventoryManager)
+        if (userSessions.contains(sessionId)) {
+          userSessions(sessionId) ! TerminateSession(inventoryManager)
+        }
         Behaviors.same
 
       case TerminateSessionSuccess(sessionId) =>
-        userSessions.remove(sessionId)
-        println(s"Successfully terminated session with sessionId: $sessionId")
+        if (userSessions.contains(sessionId)) {
+          userSessions.remove(sessionId)
+          println(s"Successfully terminated session with sessionId: $sessionId")
+        }
         Behaviors.same
 
       case default =>

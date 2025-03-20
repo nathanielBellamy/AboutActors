@@ -67,6 +67,7 @@ class UserSession(
 
       case CartEmptied(replyTo) =>
         userSessionManager ! TerminateSessionSuccess(sessionId)
+        websocketController ! TerminateSessionSuccess(sessionId)
         Behaviors.stopped
 
       case default =>

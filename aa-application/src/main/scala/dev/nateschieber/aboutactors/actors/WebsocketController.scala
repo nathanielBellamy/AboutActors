@@ -16,7 +16,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors.enums.HttpPort
-import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideInventoryManagerRef, ProvideSelfRef, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, WsInitUserSession}
+import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideInventoryManagerRef, ProvideSelfRef, TerminateSessionSuccess, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, WsInitUserSession}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -170,6 +170,13 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
             sendWebsocketMsg(uuid, s"available-item-ids::${dto.itemIds.mkString(",")}")
           case None =>
             pushWebsocketMsg(s"available-item-ids::${dto.itemIds.mkString(",")}")
+        }
+        Behaviors.same
+
+      case TerminateSessionSuccess(sessionId) =>
+        if (browserConnections.contains(sessionId)) {
+          sendWebsocketMsg(sessionId, "session-terminated")
+          browserConnections.remove(sessionId)
         }
         Behaviors.same
 
