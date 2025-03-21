@@ -14,7 +14,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object AboutActorsApplication {
 
   @main def main(): Unit = {
-    given system: ActorSystem[Nothing] = ActorSystem(Supervisor(), "aa_application")
+    given system: ActorSystem[Nothing] = ActorSystem(Supervisor(), "abtact_application")
 
     lazy val server = Http().newServerAt("localhost", HttpPort.AboutActorsApplication.port).bind(routes())
 

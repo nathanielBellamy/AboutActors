@@ -36,6 +36,8 @@ class InventoryManager(
   private var userSessionSupervisor: Option[ActorRef[AbtActMessage]] = None
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
+  private val inventory = Inventory()
+
   private val items = scala.collection.mutable.Map[String, Option[String]](
     "001" -> None,
     "002" -> None,
