@@ -40,11 +40,6 @@ object Supervisor {
         .onFailure[Throwable](SupervisorStrategy.restart)
       val restController = context.spawn(supervisedRestController, "rest_controller")
 
-      restController ! FindRefs()
-      inventoryManager ! FindRefs()
-      websocketController ! FindRefs()
-      userSessionManager ! FindRefs()
-
       new Supervisor(context)
   }
 }

@@ -196,7 +196,6 @@ class RestController(
         listings.foreach(listing => websocketController = Some(listing))
         Behaviors.same
 
-
       case default =>
         println("RestController Unrecognized Message")
         Behaviors.same

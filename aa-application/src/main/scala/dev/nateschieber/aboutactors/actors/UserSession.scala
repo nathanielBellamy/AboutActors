@@ -8,7 +8,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.UserSessionDto
-import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, CartEmptied, FindRefs, HydrateUserSession, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, RemoveItemFromCart, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TerminateSession, TerminateSessionSuccess, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, CartEmptied, FindRefs, HydrateUserSession, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, RemoveItemFromCart, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TriggerError, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 import scala.collection.mutable.ListBuffer
 
@@ -24,7 +24,12 @@ object UserSession {
 
       println(s"starting UserSession with sessionId: $uuid")
 
-      new UserSession(context, uuid, userSessionSupervisor)
+      val self = new UserSession(context, uuid, userSessionSupervisor)
+
+      context.self ! FindRefs()
+      userSessionSupervisor ! InitUserSessionSuccess(uuid, context.self)
+
+      self
   }
 }
 
@@ -102,6 +107,10 @@ class UserSession(
           TerminateSessionSuccess(sessionId)
         )
         Behaviors.stopped
+
+      case TriggerError(_) =>
+        println(s"Will trigger error in UserSession sessionId: $sessionId")
+        throw Error(s"UserSession Error for sessionId $sessionId")
 
       case default =>
         Behaviors.same

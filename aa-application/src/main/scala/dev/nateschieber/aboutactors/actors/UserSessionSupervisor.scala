@@ -1,27 +1,13 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
+import dev.nateschieber.aboutactors
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
-import dev.nateschieber.aboutactors.{
-  AbtActMessage,
-  AddItemToCart,
-  FindRefs,
-  InitUserSession,
-  InitUserSessionFailure,
-  InitUserSessionSuccess,
-  ListingResponse,
-  ProvideWebsocketControllerRef,
-  RemoveItemFromCart,
-  TerminateSession,
-  TerminateSessionSuccess,
-  TerminateUserSession,
-  UserAddedItemToCart,
-  UserRemovedItemFromCart
-}
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, FindRefs, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideWebsocketControllerRef, RemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
 
 object UserSessionSupervisor {
   val UserSessionSupervisorServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
@@ -33,6 +19,8 @@ object UserSessionSupervisor {
 
       context.system.receptionist ! Receptionist.Register(UserSessionSupervisorServiceKey, context.self)
 
+      context.self ! FindRefs()
+
       new UserSessionSupervisor(context, supervisor)
   }
 }
@@ -43,7 +31,6 @@ class UserSessionSupervisor(
                         ) extends AbstractBehavior[AbtActMessage](context) {
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
 
-  // TODO: inventory manager
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
   private val userSessions = scala.collection.mutable.Map[String, ActorRef[AbtActMessage]]()
 
@@ -73,18 +60,30 @@ class UserSessionSupervisor(
         Behaviors.same
 
       case InitUserSession(uuid, msg, replyTo) =>
+        // Here for example
         if (msg == "fail") {
           replyTo ! InitUserSessionFailure(uuid)
           return Behaviors.same
         }
-        val session = context.spawn(UserSession(uuid, context.self), s"user_session_$uuid")
-        if (session == null) {
-          replyTo ! InitUserSessionFailure(uuid)
-        } else {
-          userSessions.put(uuid, session)
-          session ! FindRefs()
-          replyTo ! InitUserSessionSuccess(uuid)
+        // End example
+
+        try {
+          val supervisedSession = Behaviors
+            .supervise(
+              UserSession(uuid, context.self)
+            )
+            .onFailure[Throwable](SupervisorStrategy.restart)
+          val session = context.spawn(supervisedSession, s"user_session_$uuid")
+        } catch {
+          case e:Exception => replyTo ! InitUserSessionFailure(uuid)
         }
+        Behaviors.same
+
+      case InitUserSessionSuccess(uuid, session) =>
+        userSessions.put(uuid, session)
+        sendWebsocketControllerMessage(
+          InitUserSessionSuccess(uuid, session)
+        )
         Behaviors.same
 
       case UserAddedItemToCart(itemId, sessionId, inventoryManager) =>
@@ -109,6 +108,15 @@ class UserSessionSupervisor(
         if (userSessions.contains(sessionId)) {
           userSessions.remove(sessionId)
           println(s"Successfully terminated session with sessionId: $sessionId")
+        }
+        Behaviors.same
+
+      case TriggerError(optSessionId) =>
+        optSessionId match {
+          case Some(sessionId) => userSessions(sessionId) ! TriggerError(None)
+          case None =>
+            println("Triggering Error in UserSessionSupervisor")
+            throw Error("UserSessionSupervisor Error")
         }
         Behaviors.same
 

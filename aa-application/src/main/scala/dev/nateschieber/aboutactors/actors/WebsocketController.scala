@@ -50,6 +50,8 @@ object WebsocketController {
 
       context.system.receptionist ! Receptionist.Register(WebsocketControllerServiceKey, context.self)
 
+      context.self ! FindRefs()
+
       val aaWebsocketController = new WebsocketController(context, supervisor)
 
       lazy val server = Http()
@@ -73,7 +75,7 @@ class WebsocketController(
                          ) extends AbstractBehavior[AbtActMessage](context) {
 
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
-  
+
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
   private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
 
@@ -208,7 +210,7 @@ class WebsocketController(
         )
         Behaviors.same
 
-      case InitUserSessionSuccess(uuid) =>
+      case InitUserSessionSuccess(uuid, session) =>
         sendWebsocketMsg(uuid, "Successfully initialized user session")
         sendInventoryManagerMessage(
           HydrateAvailableItemsRequest( Some(uuid) )
