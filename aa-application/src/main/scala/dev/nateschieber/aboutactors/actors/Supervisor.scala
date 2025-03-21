@@ -8,34 +8,34 @@ import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs}
 
 object Supervisor {
 
-  def apply(): Behavior[Nothing] = Behaviors.setup {
+  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       println("starting Supervisor")
 
       val supervisedInventoryManager = Behaviors
         .supervise(
-          InventoryManager()
+          InventoryManager(context.self)
         )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val inventoryManager = context.spawn(supervisedInventoryManager, "inventory_manager")
 
       val supervisedUserSessionManager = Behaviors
         .supervise(
-          UserSessionManager()
+          UserSessionManager(context.self)
         )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val userSessionManager = context.spawn(supervisedUserSessionManager, "user_session_manager")
 
       val supervisedWebsocketController = Behaviors
         .supervise(
-          WebsocketController()
+          WebsocketController(context.self)
         )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val websocketController = context.spawn(supervisedWebsocketController, "websocket_controller")
 
       val supervisedRestController = Behaviors
         .supervise(
-          RestController()
+          RestController(context.self)
         )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val restController = context.spawn(supervisedRestController, "rest_controller")
@@ -49,13 +49,13 @@ object Supervisor {
   }
 }
 
-class Supervisor(context: ActorContext[Nothing]) extends AbstractBehavior[Nothing](context) {
+class Supervisor(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
 
-  override def onMessage(msg: Nothing): Behavior[Nothing] = {
+  override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     Behaviors.unhandled
   }
 
-  override def onSignal: PartialFunction[Signal, Behavior[Nothing]] = {
+  override def onSignal: PartialFunction[Signal, Behavior[AbtActMessage]] = {
     case PostStop =>
       println("aa-application stopped")
       this

@@ -19,13 +19,13 @@ import spray.json.*
 object RestController {
   private val RestControllerServiceKey = ServiceKey[AbtActMessage]("rest_controller")
 
-  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
       context.system.receptionist ! Receptionist.Register(RestControllerServiceKey, context.self)
 
-      val restController = new RestController(context)
+      val restController = new RestController(context, supervisor)
 
       context.self ! FindRefs()
 
@@ -45,6 +45,7 @@ object RestController {
 
 class RestController(
                         context: ActorContext[AbtActMessage],
+                        supervisorIn: ActorRef[AbtActMessage]
                     )
   extends AbstractBehavior[AbtActMessage](context)
     with CartItemJsonSupport
@@ -52,6 +53,7 @@ class RestController(
     with TriggerErrorJsonSupport
   {
 
+  private val supervisor: ActorRef[AbtActMessage] = supervisorIn
   private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
   private var userSessionManager: Option[ActorRef[AbtActMessage]] = None

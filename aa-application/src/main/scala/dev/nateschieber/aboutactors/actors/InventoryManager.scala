@@ -12,14 +12,14 @@ import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, Hydra
 object InventoryManager {
   val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
 
-  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
       println("Starting InventoryManager")
 
       context.system.receptionist ! Receptionist.Register(InventoryManagerServiceKey, context.self)
 
-      val self = new InventoryManager(context)
+      val self = new InventoryManager(context, supervisor)
 
       context.self ! FindRefs()
 
@@ -27,8 +27,11 @@ object InventoryManager {
   }
 }
 
-class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
-  
+class InventoryManager(
+                        context: ActorContext[AbtActMessage],
+                        supervisorIn: ActorRef[AbtActMessage]
+                      ) extends AbstractBehavior[AbtActMessage](context) {
+  private val supervisor: ActorRef[AbtActMessage] = supervisorIn
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
   private val items = scala.collection.mutable.Map[String, Option[String]](

@@ -26,18 +26,23 @@ import dev.nateschieber.aboutactors.{
 object UserSessionManager {
   val UserSessionManagerServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
 
-  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
       println("Starting UserSessionManager")
 
       context.system.receptionist ! Receptionist.Register(UserSessionManagerServiceKey, context.self)
 
-      new UserSessionManager(context)
+      new UserSessionManager(context, supervisor)
   }
 }
 
-class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
+class UserSessionManager(
+                          context: ActorContext[AbtActMessage],
+                          supervisorIn: ActorRef[AbtActMessage]
+                        ) extends AbstractBehavior[AbtActMessage](context) {
+  private val supervisor: ActorRef[AbtActMessage] = supervisorIn
+
   // TODO: inventory manager
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
   private val userSessions = scala.collection.mutable.Map[String, ActorRef[AbtActMessage]]()

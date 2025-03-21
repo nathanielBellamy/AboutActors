@@ -44,13 +44,13 @@ import scala.util.matching.Regex
 object WebsocketController {
   val WebsocketControllerServiceKey = ServiceKey[AbtActMessage]("aa_websocket_controller")
 
-  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
       context.system.receptionist ! Receptionist.Register(WebsocketControllerServiceKey, context.self)
 
-      val aaWebsocketController = new WebsocketController(context)
+      val aaWebsocketController = new WebsocketController(context, supervisor)
 
       lazy val server = Http()
         .newServerAt("localhost", HttpPort.WebsocketController.port)
@@ -67,8 +67,13 @@ object WebsocketController {
   }
 }
 
-class WebsocketController(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
+class WebsocketController(
+                           context: ActorContext[AbtActMessage],
+                           supervisorIn: ActorRef[AbtActMessage]
+                         ) extends AbstractBehavior[AbtActMessage](context) {
 
+  private val supervisor: ActorRef[AbtActMessage] = supervisorIn
+  
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
   private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
 
