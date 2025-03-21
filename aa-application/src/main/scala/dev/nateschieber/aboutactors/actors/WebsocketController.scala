@@ -15,8 +15,26 @@ import akka.http.scaladsl.server.Route
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
+import dev.nateschieber.aboutactors
+import dev.nateschieber.aboutactors.actors.InventoryManager.InventoryManagerServiceKey
+import dev.nateschieber.aboutactors.actors.UserSessionManager.UserSessionManagerServiceKey
 import dev.nateschieber.aboutactors.enums.HttpPort
-import dev.nateschieber.aboutactors.{AbtActMessage, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ProvideInventoryManagerRef, ProvideSelfRef, TerminateSessionSuccess, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, WsInitUserSession}
+import dev.nateschieber.aboutactors.{
+  AbtActMessage,
+  FindRefs,
+  HydrateAvailableItems,
+  HydrateAvailableItemsRequest,
+  HydrateUserSession,
+  InitUserSession,
+  InitUserSessionFailure,
+  InitUserSessionSuccess,
+  ListingResponse,
+  ProvideInventoryManagerRef,
+  ProvideWebsocketControllerRef,
+  TerminateSessionSuccess,
+  UserAddedItemToCartFailure,
+  WsInitUserSession
+}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -26,13 +44,13 @@ import scala.util.matching.Regex
 object WebsocketController {
   val WebsocketControllerServiceKey = ServiceKey[AbtActMessage]("aa_websocket_controller")
 
-  def apply(userSessionManagerRef: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
-      context.system.receptionist ! Receptionist.Register(WebsocketControllerServiceKey, context.self)
-
       given system: ActorSystem[Nothing] = context.system
 
-      val aaWebsocketController = new WebsocketController(context, userSessionManagerRef)
+      context.system.receptionist ! Receptionist.Register(WebsocketControllerServiceKey, context.self)
+
+      val aaWebsocketController = new WebsocketController(context)
 
       lazy val server = Http()
         .newServerAt("localhost", HttpPort.WebsocketController.port)
@@ -49,16 +67,14 @@ object WebsocketController {
   }
 }
 
-class WebsocketController(context: ActorContext[AbtActMessage], userSessionManagerRef: ActorRef[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
+class WebsocketController(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
   private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
 
   private val browserConnections = scala.collection.mutable.Map[String, TextMessage => Unit]()
-  private val userSessionManager: ActorRef[AbtActMessage] = userSessionManagerRef
-  private var inventoryManager: ActorRef[AbtActMessage] = null
-
-  var selfRef: ActorRef[AbtActMessage] = null
+  private var userSessionManager: Option[ActorRef[AbtActMessage]] = None
+  private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
 
   val route: Route =
     path("aa-websocket") {
@@ -120,35 +136,78 @@ class WebsocketController(context: ActorContext[AbtActMessage], userSessionManag
       case "valid" =>
         println(s"WebsocketController::Received valid message from uuid: $uuid")
         try {
-          selfRef ! WsInitUserSession(uuid, "start")
+          context.self ! WsInitUserSession(uuid, "start")
         } catch {
           case e: Any =>  println(s"WebsocketController::An error occurred spawning UserSession sessionId $uuid : ${e.toString}")
           case default => println(s"WebsocketController::An error occurred spawning UserSession sessionId $uuid")
         }
       case "fail-user-session" =>
-        selfRef ! WsInitUserSession(uuid, "fail")
+        context.self ! WsInitUserSession(uuid, "fail")
       case default =>
         println(s"WebsocketController::Unrecognized websocket message from user sessionId: $uuid")
     }
   }
 
+  private def sendUserSessionManagerMessage(msg: AbtActMessage): Unit = {
+    userSessionManager match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("WebSocketController Currently has no ref to UserSessionManager")
+        context.self ! FindRefs()
+    }
+  }
+
+  private def sendInventoryManagerMessage(msg: AbtActMessage): Unit = {
+    inventoryManager match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("WebSocketController Currently has no ref to InventoryManager")
+        context.self ! FindRefs()
+    }
+  }
+
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] =
     msg match {
-      case ProvideSelfRef(self) =>
-        selfRef = self
+      case FindRefs() =>
+        val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
+        context.system.receptionist ! Receptionist.Find(InventoryManagerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(UserSessionManagerServiceKey, listingResponseAdapter)
+        Behaviors.same
+
+      case ListingResponse(InventoryManagerServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => inventoryManager = Some(listing))
+        sendInventoryManagerMessage(
+          ProvideWebsocketControllerRef(context.self)
+        )
+        sendUserSessionManagerMessage(
+          ProvideWebsocketControllerRef(context.self)
+        )
+        Behaviors.same
+
+      case ListingResponse(UserSessionManagerServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => userSessionManager = Some(listing))
+        sendUserSessionManagerMessage(
+          ProvideWebsocketControllerRef(context.self)
+        )
         Behaviors.same
 
       case ProvideInventoryManagerRef(inventoryManagerRef) =>
-        inventoryManager = inventoryManagerRef
+        inventoryManager = Some(inventoryManagerRef)
         Behaviors.same
 
       case WsInitUserSession(uuid, msg) =>
-        userSessionManager ! InitUserSession(uuid, msg, context.self)
+        sendUserSessionManagerMessage(
+          InitUserSession(uuid, msg, context.self)
+        )
         Behaviors.same
 
       case InitUserSessionSuccess(uuid) =>
         sendWebsocketMsg(uuid, "Successfully initialized user session")
-        inventoryManager ! HydrateAvailableItemsRequest( Some(uuid) )
+        sendInventoryManagerMessage(
+          HydrateAvailableItemsRequest( Some(uuid) )
+        )
         Behaviors.same
 
       case InitUserSessionFailure(uuid) =>

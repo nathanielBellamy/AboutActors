@@ -7,7 +7,7 @@ import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 object InventoryManager {
   val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
@@ -28,6 +28,8 @@ object InventoryManager {
 }
 
 class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
+  
+  private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
   private val items = scala.collection.mutable.Map[String, Option[String]](
     "001" -> None,
@@ -39,11 +41,18 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
     "007" -> None,
   ) // key: itemId, value: owned by userSessionId
 
-  private var websocketController: ActorRef[AbtActMessage] = null
-
   private def getAvailableItemsDto: AvailableItemsDto = {
     val availableItems = items.keys.filter(k => items.get(k).get.isEmpty).toList
     AvailableItemsDto(availableItems)
+  }
+
+  private def sendWebsocketControllerMessage(msg: AbtActMessage): Unit = {
+    websocketController match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("InventoryManager does not have a current ref to WebSocketController")
+        context.self ! FindRefs()
+    }
   }
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
@@ -55,8 +64,10 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
 
       case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
         // we expect only one listing
-        listings.foreach(listing => websocketController = listing)
-        println("Inventory Manager found websocket controller")
+        listings.foreach(listing => websocketController = Some(listing))
+        sendWebsocketControllerMessage(
+          ProvideInventoryManagerRef(context.self)
+        )
         Behaviors.same
 
       case RequestToAddItemToCart(itemId, userSessionUuid, userSessionRef) =>
@@ -67,7 +78,9 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
           case None =>
             items.update(itemId, Some(userSessionUuid))
             userSessionRef ! ItemAddedToCart(itemId, context.self)
-            websocketController ! HydrateAvailableItems( None, getAvailableItemsDto )
+            sendWebsocketControllerMessage(
+              HydrateAvailableItems( None, getAvailableItemsDto )
+            )
         }
         Behaviors.same
 
@@ -76,7 +89,9 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
           case Some(_) =>
             items.update(itemId, None)
             userSessionRef ! ItemRemovedFromCart(itemId, context.self)
-            websocketController ! HydrateAvailableItems( None, getAvailableItemsDto )
+            sendWebsocketControllerMessage(
+              HydrateAvailableItems( None, getAvailableItemsDto )
+            )
           case None =>
             userSessionRef ! ItemNotRemovedFromCart(itemId, userSessionRef)
         }
@@ -88,16 +103,20 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
             items.update(itemId, None)
           }
         }
-        websocketController ! HydrateAvailableItems( None , getAvailableItemsDto )
+        sendWebsocketControllerMessage(
+          HydrateAvailableItems( None , getAvailableItemsDto )
+        )
         userSession ! CartEmptied(context.self)
         Behaviors.same
 
       case HydrateAvailableItemsRequest(optUuid) =>
-        websocketController ! HydrateAvailableItems( optUuid, getAvailableItemsDto )
+        sendWebsocketControllerMessage(
+          HydrateAvailableItems( optUuid, getAvailableItemsDto )
+        )
         Behaviors.same
 
       case ProvideWebsocketControllerRef(websocketControllerRef) =>
-        websocketController = websocketControllerRef
+        websocketController = Some(websocketControllerRef)
         Behaviors.same
 
       case TriggerError(_) =>

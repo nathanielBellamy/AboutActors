@@ -10,7 +10,6 @@ sealed trait AbtActMessage
 final case class FindRefs() extends AbtActMessage
 final case class ListingResponse(listing: Receptionist.Listing) extends AbtActMessage
 
-final case class ProvideSelfRef(selfRef: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class ProvideWebsocketControllerRef(websocketControllerRef: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class ProvideInventoryManagerRef(inventoryManagerRef: ActorRef[AbtActMessage]) extends AbtActMessage
 

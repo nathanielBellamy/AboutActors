@@ -1,11 +1,10 @@
 package dev.nateschieber.aboutactors.actors
 
-import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.{Behavior, PostStop, Signal, SupervisorStrategy}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{AbtActMessage, ProvideInventoryManagerRef, ProvideSelfRef, ProvideWebsocketControllerRef}
+import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs}
 
 object Supervisor {
 
@@ -28,18 +27,23 @@ object Supervisor {
       val userSessionManager = context.spawn(supervisedUserSessionManager, "user_session_manager")
 
       val supervisedWebsocketController = Behaviors
-        .supervise(WebsocketController(userSessionManager))
+        .supervise(
+          WebsocketController()
+        )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val websocketController = context.spawn(supervisedWebsocketController, "websocket_controller")
 
-      userSessionManager ! ProvideWebsocketControllerRef(websocketController)
-      websocketController ! ProvideSelfRef(websocketController)
-      websocketController ! ProvideInventoryManagerRef(inventoryManager)
-
       val supervisedRestController = Behaviors
-        .supervise(RestController(websocketController, userSessionManager, inventoryManager))
+        .supervise(
+          RestController(websocketController, userSessionManager, inventoryManager)
+        )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val restController = context.spawn(supervisedRestController, "rest_controller")
+
+      inventoryManager ! FindRefs()
+      websocketController ! FindRefs()
+      userSessionManager ! FindRefs()
+
       new Supervisor(context)
   }
 }

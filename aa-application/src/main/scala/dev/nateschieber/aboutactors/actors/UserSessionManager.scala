@@ -1,11 +1,27 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, RemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TerminateUserSession, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, UserRemovedItemFromCart}
+import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
+import dev.nateschieber.aboutactors.{
+  AbtActMessage,
+  AddItemToCart,
+  FindRefs,
+  InitUserSession,
+  InitUserSessionFailure,
+  InitUserSessionSuccess,
+  ListingResponse,
+  ProvideWebsocketControllerRef,
+  RemoveItemFromCart,
+  TerminateSession,
+  TerminateSessionSuccess,
+  TerminateUserSession,
+  UserAddedItemToCart,
+  UserRemovedItemFromCart
+}
 
 object UserSessionManager {
   val UserSessionManagerServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
@@ -22,14 +38,32 @@ object UserSessionManager {
 }
 
 class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
-
+  private var websocketController: Option[ActorRef[AbtActMessage]] = None
   private val userSessions = scala.collection.mutable.Map[String, ActorRef[AbtActMessage]]()
-  private var websocketController: ActorRef[AbtActMessage] = null
+
+  private def sendWebsocketControllerMessage(msg: AbtActMessage): Unit = {
+    websocketController match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("UserSessionManager does not have a current ref to WebSocketController")
+        context.self ! FindRefs()
+    }
+  }
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     msg match {
+      case FindRefs() =>
+        val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
+        context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        Behaviors.same
+
+      case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => websocketController = Some(listing))
+        Behaviors.same
+
       case ProvideWebsocketControllerRef(wscRef) =>
-        websocketController = wscRef
+        websocketController = Some(wscRef)
         Behaviors.same
 
       case InitUserSession(uuid, msg, replyTo) =>
@@ -37,11 +71,12 @@ class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractB
           replyTo ! InitUserSessionFailure(uuid)
           return Behaviors.same
         }
-        val session = context.spawn(UserSession(uuid, websocketController, context.self), s"user_session_$uuid")
+        val session = context.spawn(UserSession(uuid, context.self), s"user_session_$uuid")
         if (session == null) {
           replyTo ! InitUserSessionFailure(uuid)
         } else {
           userSessions.put(uuid, session)
+          session ! FindRefs()
           replyTo ! InitUserSessionSuccess(uuid)
         }
         Behaviors.same
