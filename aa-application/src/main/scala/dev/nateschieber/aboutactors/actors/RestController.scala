@@ -1,28 +1,26 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
-import akka.actor.typed.receptionist.ServiceKey
+import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCode}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import dev.nateschieber.aboutactors.{AbtActMessage, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
 import dev.nateschieber.aboutactors.dto.{CartItemDto, CartItemJsonSupport, TriggerErrorDto, TriggerErrorJsonSupport, UserSessionIdDto, UserSessionIdJsonSupport}
 import dev.nateschieber.aboutactors.enums.HttpPort
 
-import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.*
 import spray.json.*
 
 object RestController {
-
-  private val restControllerServiceKey = ServiceKey[AbtActMessage]("rest_controller")
+  private val RestControllerServiceKey = ServiceKey[AbtActMessage]("rest_controller")
 
   def apply(websocketController: ActorRef[AbtActMessage], userSessionManager: ActorRef[AbtActMessage], inventoryManager: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
+
+      context.system.receptionist ! Receptionist.Register(RestControllerServiceKey, context.self)
 
       val restController = new RestController(context, websocketController, userSessionManager, inventoryManager)
 

@@ -1,18 +1,22 @@
 package dev.nateschieber.aboutactors.actors
 
+import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, HydrateAvailableItems, HydrateAvailableItemsRequest, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 object InventoryManager {
+  private val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
+
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
-
       println("Starting InventoryManager")
+
+      context.system.receptionist ! Receptionist.Register(InventoryManagerServiceKey, context.self)
 
       new InventoryManager(context)
   }
@@ -40,7 +44,7 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     msg match {
       case RequestToAddItemToCart(itemId, userSessionUuid, userSessionRef) =>
-        items.get(itemId).get match {
+        items(itemId) match {
           case Some(_) =>
             // Item already taken
             userSessionRef ! ItemNotAddedToCart(itemId, context.self)
@@ -52,7 +56,7 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
         Behaviors.same
 
       case RequestToRemoveItemFromCart(itemId, userSessionUuid, userSessionRef) =>
-        items.get(itemId).get match {
+        items(itemId) match {
           case Some(_) =>
             items.update(itemId, None)
             userSessionRef ! ItemRemovedFromCart(itemId, context.self)

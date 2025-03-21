@@ -1,5 +1,6 @@
 package dev.nateschieber.aboutactors.actors
 
+import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
@@ -7,11 +8,14 @@ import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, RemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TerminateUserSession, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, UserRemovedItemFromCart}
 
 object UserSessionManager {
+  private val UserSessionManagerServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
+
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
-
       println("Starting UserSessionManager")
+
+      context.system.receptionist ! Receptionist.Register(UserSessionManagerServiceKey, context.self)
 
       new UserSessionManager(context)
   }

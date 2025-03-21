@@ -1,5 +1,6 @@
 package dev.nateschieber.aboutactors.actors
 
+import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
@@ -11,9 +12,14 @@ import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, CartEmptied, 
 import scala.collection.mutable.ListBuffer
 
 object UserSession {
+
   def apply(uuid: String, websocketController: ActorRef[AbtActMessage], userSessionManager: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
+
+      val userSessionServiceKey = ServiceKey[AbtActMessage](s"user-session_$uuid")
+
+      context.system.receptionist ! Receptionist.Register(userSessionServiceKey, context.self)
 
       println(s"starting UserSession with sessionId: $uuid")
 
