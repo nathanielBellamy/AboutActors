@@ -23,21 +23,21 @@ import dev.nateschieber.aboutactors.{
   UserRemovedItemFromCart
 }
 
-object UserSessionManager {
-  val UserSessionManagerServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
+object UserSessionSupervisor {
+  val UserSessionSupervisorServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
 
   def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
-      println("Starting UserSessionManager")
+      println("Starting UserSessionSupervisor")
 
-      context.system.receptionist ! Receptionist.Register(UserSessionManagerServiceKey, context.self)
+      context.system.receptionist ! Receptionist.Register(UserSessionSupervisorServiceKey, context.self)
 
-      new UserSessionManager(context, supervisor)
+      new UserSessionSupervisor(context, supervisor)
   }
 }
 
-class UserSessionManager(
+class UserSessionSupervisor(
                           context: ActorContext[AbtActMessage],
                           supervisorIn: ActorRef[AbtActMessage]
                         ) extends AbstractBehavior[AbtActMessage](context) {
@@ -51,7 +51,7 @@ class UserSessionManager(
     websocketController match {
       case Some(ref) => ref ! msg
       case None =>
-        println("UserSessionManager does not have a current ref to WebSocketController")
+        println("UserSessionSupervisor does not have a current ref to WebSocketController")
         context.self ! FindRefs()
     }
   }
@@ -113,7 +113,7 @@ class UserSessionManager(
         Behaviors.same
 
       case default =>
-        println("UserSessionManager::UnMatchedMethod")
+        println("UserSessionSupervisor::UnMatchedMethod")
         Behaviors.same
     }
   }

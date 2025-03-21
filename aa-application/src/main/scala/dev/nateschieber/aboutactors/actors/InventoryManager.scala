@@ -1,13 +1,30 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{
+  AbtActMessage, 
+  CartEmptied, 
+  FindRefs, 
+  HydrateAvailableItems, 
+  HydrateAvailableItemsRequest, 
+  ItemAddedToCart, 
+  ItemNotAddedToCart, 
+  ItemNotRemovedFromCart, 
+  ItemRemovedFromCart, 
+  ListingResponse, 
+  ProvideInventoryManagerRef, 
+  ProvideWebsocketControllerRef, 
+  RequestToAddItemToCart, 
+  RequestToEmptyCart, 
+  RequestToRemoveItemFromCart, 
+  TriggerError, 
+ }
 
 object InventoryManager {
   val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")

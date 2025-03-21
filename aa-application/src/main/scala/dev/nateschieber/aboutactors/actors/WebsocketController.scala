@@ -17,7 +17,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors
 import dev.nateschieber.aboutactors.actors.InventoryManager.InventoryManagerServiceKey
-import dev.nateschieber.aboutactors.actors.UserSessionManager.UserSessionManagerServiceKey
+import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
 import dev.nateschieber.aboutactors.enums.HttpPort
 import dev.nateschieber.aboutactors.{
   AbtActMessage,
@@ -153,11 +153,11 @@ class WebsocketController(
     }
   }
 
-  private def sendUserSessionManagerMessage(msg: AbtActMessage): Unit = {
+  private def sendUserSessionSupervisorMessage(msg: AbtActMessage): Unit = {
     userSessionManager match {
       case Some(ref) => ref ! msg
       case None =>
-        println("WebSocketController does not have a current ref to UserSessionManager")
+        println("WebSocketController does not have a current ref to UserSessionSupervisor")
         context.self ! FindRefs()
     }
   }
@@ -176,7 +176,7 @@ class WebsocketController(
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
         context.system.receptionist ! Receptionist.Find(InventoryManagerServiceKey, listingResponseAdapter)
-        context.system.receptionist ! Receptionist.Find(UserSessionManagerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(UserSessionSupervisorServiceKey, listingResponseAdapter)
         Behaviors.same
 
       case ListingResponse(InventoryManagerServiceKey.Listing(listings)) =>
@@ -185,15 +185,15 @@ class WebsocketController(
         sendInventoryManagerMessage(
           ProvideWebsocketControllerRef(context.self)
         )
-        sendUserSessionManagerMessage(
+        sendUserSessionSupervisorMessage(
           ProvideWebsocketControllerRef(context.self)
         )
         Behaviors.same
 
-      case ListingResponse(UserSessionManagerServiceKey.Listing(listings)) =>
+      case ListingResponse(UserSessionSupervisorServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => userSessionManager = Some(listing))
-        sendUserSessionManagerMessage(
+        sendUserSessionSupervisorMessage(
           ProvideWebsocketControllerRef(context.self)
         )
         Behaviors.same
@@ -203,7 +203,7 @@ class WebsocketController(
         Behaviors.same
 
       case WsInitUserSession(uuid, msg) =>
-        sendUserSessionManagerMessage(
+        sendUserSessionSupervisorMessage(
           InitUserSession(uuid, msg, context.self)
         )
         Behaviors.same

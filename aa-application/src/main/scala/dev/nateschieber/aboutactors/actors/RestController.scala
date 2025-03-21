@@ -7,7 +7,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import dev.nateschieber.aboutactors.actors.InventoryManager.InventoryManagerServiceKey
-import dev.nateschieber.aboutactors.actors.UserSessionManager.UserSessionManagerServiceKey
+import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, ListingResponse, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
 import dev.nateschieber.aboutactors.dto.{CartItemDto, CartItemJsonSupport, TriggerErrorDto, TriggerErrorJsonSupport, UserSessionIdDto, UserSessionIdJsonSupport}
@@ -67,11 +67,11 @@ class RestController(
     }
   }
 
-  private def sendUserSessionManagerMessage(msg: AbtActMessage): Unit = {
+  private def sendUserSessionSupervisorMessage(msg: AbtActMessage): Unit = {
     userSessionManager match {
       case Some(ref) => ref ! msg
       case None =>
-        println("RestController does not have a current ref to UserSessionManager")
+        println("RestController does not have a current ref to UserSessionSupervisor")
         context.self ! FindRefs()
     }
   }
@@ -92,7 +92,7 @@ class RestController(
           entity(as[CartItemDto]) { dto => {
             inventoryManager match {
               case Some(ref) =>
-                sendUserSessionManagerMessage(
+                sendUserSessionSupervisorMessage(
                   UserAddedItemToCart(dto.itemId, dto.sessionId, ref)
                 )
               case None =>
@@ -108,7 +108,7 @@ class RestController(
           entity(as[CartItemDto]) { dto => {
             inventoryManager match {
               case Some(ref) =>
-                sendUserSessionManagerMessage(
+                sendUserSessionSupervisorMessage(
                   UserRemovedItemFromCart(dto.itemId, dto.sessionId, ref)
                 )
               case None =>
@@ -124,7 +124,7 @@ class RestController(
           entity(as[UserSessionIdDto]) { dto => {
             inventoryManager match {
               case Some(ref) =>
-                sendUserSessionManagerMessage(
+                sendUserSessionSupervisorMessage(
                   TerminateUserSession(dto.sessionId, ref)
                 )
               case None =>
@@ -150,12 +150,12 @@ class RestController(
                 )
                 complete("ok")
               case "user-session-manager" =>
-                sendUserSessionManagerMessage(
+                sendUserSessionSupervisorMessage(
                   TriggerError(None)
                 )
                 complete("ok")
               case "user-session" =>
-                sendUserSessionManagerMessage(
+                sendUserSessionSupervisorMessage(
                   TriggerError( Some(dto.sessionId) )
                 )
                 complete("ok")
@@ -177,7 +177,7 @@ class RestController(
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
         context.system.receptionist ! Receptionist.Find(InventoryManagerServiceKey, listingResponseAdapter)
-        context.system.receptionist ! Receptionist.Find(UserSessionManagerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(UserSessionSupervisorServiceKey, listingResponseAdapter)
         context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
         Behaviors.same
 
@@ -186,7 +186,7 @@ class RestController(
         listings.foreach(listing => inventoryManager = Some(listing))
         Behaviors.same
 
-      case ListingResponse(UserSessionManagerServiceKey.Listing(listings)) =>
+      case ListingResponse(UserSessionSupervisorServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => userSessionManager = Some(listing))
         Behaviors.same

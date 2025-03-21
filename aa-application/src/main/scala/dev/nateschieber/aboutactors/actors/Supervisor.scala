@@ -21,7 +21,7 @@ object Supervisor {
 
       val supervisedUserSessionManager = Behaviors
         .supervise(
-          UserSessionManager(context.self)
+          UserSessionSupervisor(context.self)
         )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val userSessionManager = context.spawn(supervisedUserSessionManager, "user_session_manager")

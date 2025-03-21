@@ -14,7 +14,7 @@ import scala.collection.mutable.ListBuffer
 
 object UserSession {
 
-  def apply(uuid: String, userSessionManager: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(uuid: String, userSessionSupervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
@@ -24,18 +24,18 @@ object UserSession {
 
       println(s"starting UserSession with sessionId: $uuid")
 
-      new UserSession(context, uuid, userSessionManager)
+      new UserSession(context, uuid, userSessionSupervisor)
   }
 }
 
 class UserSession(
                    context: ActorContext[AbtActMessage],
                    uuid: String,
-                   userSessionManagerIn: ActorRef[AbtActMessage]
+                   userSessionSupervisorIn: ActorRef[AbtActMessage]
                  ) extends AbstractBehavior[AbtActMessage](context) {
   private val sessionId: String = uuid
   private var itemIds: ListBuffer[String] = ListBuffer()
-  private val userSessionManager: ActorRef[AbtActMessage] = userSessionManagerIn
+  private val userSessionSupervisor: ActorRef[AbtActMessage] = userSessionSupervisorIn
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
   private def sendWebsocketControllerMessage(msg: AbtActMessage): Unit = {
@@ -97,7 +97,7 @@ class UserSession(
         Behaviors.same
 
       case CartEmptied(replyTo) =>
-        userSessionManager ! TerminateSessionSuccess(sessionId)
+        userSessionSupervisor ! TerminateSessionSuccess(sessionId)
         sendWebsocketControllerMessage(
           TerminateSessionSuccess(sessionId)
         )
