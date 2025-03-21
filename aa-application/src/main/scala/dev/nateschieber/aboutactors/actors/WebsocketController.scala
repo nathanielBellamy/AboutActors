@@ -152,7 +152,7 @@ class WebsocketController(context: ActorContext[AbtActMessage]) extends Abstract
     userSessionManager match {
       case Some(ref) => ref ! msg
       case None =>
-        println("WebSocketController Currently has no ref to UserSessionManager")
+        println("WebSocketController does not have a current ref to UserSessionManager")
         context.self ! FindRefs()
     }
   }
@@ -161,7 +161,7 @@ class WebsocketController(context: ActorContext[AbtActMessage]) extends Abstract
     inventoryManager match {
       case Some(ref) => ref ! msg
       case None =>
-        println("WebSocketController Currently has no ref to InventoryManager")
+        println("WebSocketController does not have a current ref to InventoryManager")
         context.self ! FindRefs()
     }
   }

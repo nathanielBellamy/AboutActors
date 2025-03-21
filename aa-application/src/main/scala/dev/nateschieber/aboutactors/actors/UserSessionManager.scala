@@ -38,6 +38,7 @@ object UserSessionManager {
 }
 
 class UserSessionManager(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
+  // TODO: inventory manager
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
   private val userSessions = scala.collection.mutable.Map[String, ActorRef[AbtActMessage]]()
 

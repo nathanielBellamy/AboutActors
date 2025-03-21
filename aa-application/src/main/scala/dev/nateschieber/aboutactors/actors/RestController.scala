@@ -6,7 +6,10 @@ import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import dev.nateschieber.aboutactors.{AbtActMessage, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
+import dev.nateschieber.aboutactors.actors.InventoryManager.InventoryManagerServiceKey
+import dev.nateschieber.aboutactors.actors.UserSessionManager.UserSessionManagerServiceKey
+import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
+import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, ListingResponse, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
 import dev.nateschieber.aboutactors.dto.{CartItemDto, CartItemJsonSupport, TriggerErrorDto, TriggerErrorJsonSupport, UserSessionIdDto, UserSessionIdJsonSupport}
 import dev.nateschieber.aboutactors.enums.HttpPort
 
@@ -16,13 +19,15 @@ import spray.json.*
 object RestController {
   private val RestControllerServiceKey = ServiceKey[AbtActMessage]("rest_controller")
 
-  def apply(websocketController: ActorRef[AbtActMessage], userSessionManager: ActorRef[AbtActMessage], inventoryManager: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
       context.system.receptionist ! Receptionist.Register(RestControllerServiceKey, context.self)
 
-      val restController = new RestController(context, websocketController, userSessionManager, inventoryManager)
+      val restController = new RestController(context)
+
+      context.self ! FindRefs()
 
       lazy val server = Http()
         .newServerAt("localhost", HttpPort.RestController.port)
@@ -40,9 +45,6 @@ object RestController {
 
 class RestController(
                         context: ActorContext[AbtActMessage],
-                        websocketControllerIn: ActorRef[AbtActMessage],
-                        userSessionManagerIn: ActorRef[AbtActMessage],
-                        inventoryManagerIn: ActorRef[AbtActMessage]
                     )
   extends AbstractBehavior[AbtActMessage](context)
     with CartItemJsonSupport
@@ -50,16 +52,51 @@ class RestController(
     with TriggerErrorJsonSupport
   {
 
-  private val websocketController: ActorRef[AbtActMessage] = websocketControllerIn
-  private val userSessionManager: ActorRef[AbtActMessage] = userSessionManagerIn
-  private val inventoryManager: ActorRef[AbtActMessage] = inventoryManagerIn
+  private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
+  private var websocketController: Option[ActorRef[AbtActMessage]] = None
+  private var userSessionManager: Option[ActorRef[AbtActMessage]] = None
+
+  private def sendInventoryManagerMessage(msg: AbtActMessage): Unit = {
+    inventoryManager match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("RestController does not have a current ref to InventoryManager")
+        context.self ! FindRefs()
+    }
+  }
+
+  private def sendUserSessionManagerMessage(msg: AbtActMessage): Unit = {
+    userSessionManager match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("RestController does not have a current ref to UserSessionManager")
+        context.self ! FindRefs()
+    }
+  }
+
+  private def sendWebsocketControllerMessage(msg: AbtActMessage): Unit = {
+    websocketController match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("RestController does not have a current ref to WebSocketController")
+        context.self ! FindRefs()
+    }
+  }
 
   def routes(): Route = {
     concat(
       path("add-item-to-cart") {
         post {
           entity(as[CartItemDto]) { dto => {
-            userSessionManager ! UserAddedItemToCart(dto.itemId, dto.sessionId, inventoryManager)
+            inventoryManager match {
+              case Some(ref) =>
+                sendUserSessionManagerMessage(
+                  UserAddedItemToCart(dto.itemId, dto.sessionId, ref)
+                )
+              case None =>
+                println("RestController does not have a current ref to InventoryManager")
+                context.self ! FindRefs()
+            }
             complete("ok")
           }}
         }
@@ -67,7 +104,15 @@ class RestController(
       path("remove-item-from-cart") {
         post {
           entity(as[CartItemDto]) { dto => {
-            userSessionManager ! UserRemovedItemFromCart(dto.itemId, dto.sessionId, inventoryManager)
+            inventoryManager match {
+              case Some(ref) =>
+                sendUserSessionManagerMessage(
+                  UserRemovedItemFromCart(dto.itemId, dto.sessionId, ref)
+                )
+              case None =>
+                println("RestController does not have a current ref to InventoryManager")
+                context.self ! FindRefs()
+            }
             complete("ok")
           }}
         }
@@ -75,7 +120,15 @@ class RestController(
       path("terminate-user-session") {
         post {
           entity(as[UserSessionIdDto]) { dto => {
-            userSessionManager ! TerminateUserSession(dto.sessionId, inventoryManager)
+            inventoryManager match {
+              case Some(ref) =>
+                sendUserSessionManagerMessage(
+                  TerminateUserSession(dto.sessionId, ref)
+                )
+              case None =>
+                println("RestController does not have a current ref to InventoryManager")
+                context.self ! FindRefs()
+            }
             complete("ok")
           }}
         }
@@ -85,16 +138,24 @@ class RestController(
           entity(as[TriggerErrorDto]) { dto => {
             dto.actorToError match {
               case "websocket-controller" =>
-                websocketController ! TriggerError(None)
+                sendWebsocketControllerMessage(
+                  TriggerError(None)
+                )
                 complete("ok")
               case "inventory-manager" =>
-                inventoryManager ! TriggerError(None)
+                sendInventoryManagerMessage(
+                  TriggerError(None)
+                )
                 complete("ok")
               case "user-session-manager" =>
-                userSessionManager ! TriggerError(None)
+                sendUserSessionManagerMessage(
+                  TriggerError(None)
+                )
                 complete("ok")
               case "user-session" =>
-                userSessionManager ! TriggerError( Some(dto.sessionId) )
+                sendUserSessionManagerMessage(
+                  TriggerError( Some(dto.sessionId) )
+                )
                 complete("ok")
             }
           }}
@@ -110,6 +171,33 @@ class RestController(
   }
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
-    Behaviors.same
+    msg match {
+      case FindRefs() =>
+        val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
+        context.system.receptionist ! Receptionist.Find(InventoryManagerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(UserSessionManagerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        Behaviors.same
+
+      case ListingResponse(InventoryManagerServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => inventoryManager = Some(listing))
+        Behaviors.same
+
+      case ListingResponse(UserSessionManagerServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => userSessionManager = Some(listing))
+        Behaviors.same
+
+      case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => websocketController = Some(listing))
+        Behaviors.same
+
+
+      case default =>
+        println("RestController Unrecognized Message")
+        Behaviors.same
+    }
   }
 }
