@@ -5,26 +5,10 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
+import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{
-  AbtActMessage, 
-  CartEmptied, 
-  FindRefs, 
-  HydrateAvailableItems, 
-  HydrateAvailableItemsRequest, 
-  ItemAddedToCart, 
-  ItemNotAddedToCart, 
-  ItemNotRemovedFromCart, 
-  ItemRemovedFromCart, 
-  ListingResponse, 
-  ProvideInventoryManagerRef, 
-  ProvideWebsocketControllerRef, 
-  RequestToAddItemToCart, 
-  RequestToEmptyCart, 
-  RequestToRemoveItemFromCart, 
-  TriggerError, 
- }
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
 
 object InventoryManager {
   val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
@@ -49,6 +33,7 @@ class InventoryManager(
                         supervisorIn: ActorRef[AbtActMessage]
                       ) extends AbstractBehavior[AbtActMessage](context) {
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
+  private var userSessionSupervisor: Option[ActorRef[AbtActMessage]] = None
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
   private val items = scala.collection.mutable.Map[String, Option[String]](
@@ -75,11 +60,29 @@ class InventoryManager(
     }
   }
 
+  private def sendUserSessionSupervisorMessage(msg: AbtActMessage): Unit = {
+    userSessionSupervisor match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("InventoryManager does not have a current ref to UserSessionSupervisor")
+        context.self ! FindRefs()
+    }
+  }
+
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     msg match {
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
+        context.system.receptionist ! Receptionist.Find(UserSessionSupervisorServiceKey, listingResponseAdapter)
         context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        Behaviors.same
+
+      case ListingResponse(UserSessionSupervisorServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => userSessionSupervisor = Some(listing))
+        sendUserSessionSupervisorMessage(
+          ProvideInventoryManagerRef(context.self)
+        )
         Behaviors.same
 
       case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
@@ -137,6 +140,11 @@ class InventoryManager(
 
       case ProvideWebsocketControllerRef(websocketControllerRef) =>
         websocketController = Some(websocketControllerRef)
+        Behaviors.same
+
+      case RequestRefreshSessionItems(sessionId, replyTo) =>
+        val list = items.filter(pair => pair._2.isDefined && pair._2.get == sessionId).keys.toList
+        replyTo ! RefreshedSessionItems(list, context.self)
         Behaviors.same
 
       case TriggerError(_) =>

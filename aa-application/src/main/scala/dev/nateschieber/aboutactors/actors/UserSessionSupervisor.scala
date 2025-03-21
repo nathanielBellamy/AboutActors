@@ -6,8 +6,9 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors
+import dev.nateschieber.aboutactors.actors.InventoryManager.InventoryManagerServiceKey
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
-import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, FindRefs, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideWebsocketControllerRef, RemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, FindRefs, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshItemsFromInventory, RemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
 
 object UserSessionSupervisor {
   val UserSessionSupervisorServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
@@ -31,6 +32,7 @@ class UserSessionSupervisor(
                         ) extends AbstractBehavior[AbtActMessage](context) {
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
 
+  private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
   private val userSessions = scala.collection.mutable.Map[String, ActorRef[AbtActMessage]]()
 
@@ -47,7 +49,17 @@ class UserSessionSupervisor(
     msg match {
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
+        context.system.receptionist ! Receptionist.Find(InventoryManagerServiceKey, listingResponseAdapter)
         context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        Behaviors.same
+
+      case ListingResponse(InventoryManagerServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => inventoryManager = Some(listing))
+        Behaviors.same
+
+      case ProvideInventoryManagerRef(imRef) =>
+        inventoryManager = Some(imRef)
         Behaviors.same
 
       case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
@@ -81,6 +93,14 @@ class UserSessionSupervisor(
 
       case InitUserSessionSuccess(uuid, session) =>
         userSessions.put(uuid, session)
+        inventoryManager match {
+          case Some(ref) =>
+            session ! RefreshItemsFromInventory(ref)
+          case None =>
+            println("UserSessionSupervisor does not have a current ref to InventoryManager")
+            context.self ! FindRefs()
+        }
+
         sendWebsocketControllerMessage(
           InitUserSessionSuccess(uuid, session)
         )

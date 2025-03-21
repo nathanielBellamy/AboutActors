@@ -8,7 +8,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.UserSessionDto
-import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, CartEmptied, FindRefs, HydrateUserSession, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, RemoveItemFromCart, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TriggerError, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, CartEmptied, FindRefs, HydrateUserSession, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, RefreshItemsFromInventory, RefreshedSessionItems, RemoveItemFromCart, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TriggerError, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 import scala.collection.mutable.ListBuffer
 
@@ -52,6 +52,10 @@ class UserSession(
     }
   }
 
+  private def getSessionDto: UserSessionDto = {
+    UserSessionDto(sessionId, itemIds.toList)
+  }
+
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     msg match {
       case FindRefs() =>
@@ -70,9 +74,8 @@ class UserSession(
 
       case ItemAddedToCart(itemId, inventoryManager) =>
         itemIds.addOne(itemId)
-        val dto = UserSessionDto(sessionId, itemIds.toList)
         sendWebsocketControllerMessage(
-          HydrateUserSession(dto)
+          HydrateUserSession(getSessionDto)
         )
         Behaviors.same
 
@@ -88,9 +91,8 @@ class UserSession(
 
       case ItemRemovedFromCart(itemId, inventoryManager) =>
         itemIds = itemIds.filter(id => id != itemId)
-        val dto = UserSessionDto(sessionId, itemIds.toList)
         sendWebsocketControllerMessage(
-          HydrateUserSession(dto)
+          HydrateUserSession(getSessionDto)
         )
         Behaviors.same
 
@@ -107,6 +109,17 @@ class UserSession(
           TerminateSessionSuccess(sessionId)
         )
         Behaviors.stopped
+
+      case RefreshItemsFromInventory(inventoryManager) =>
+        inventoryManager ! RequestRefreshSessionItems(sessionId, context.self)
+        Behaviors.same
+
+      case RefreshedSessionItems(refreshedItemIds, replyTo) =>
+        refreshedItemIds.foreach(id => itemIds.addOne(id))
+        sendWebsocketControllerMessage(
+          HydrateUserSession(getSessionDto)
+        )
+        Behaviors.same
 
       case TriggerError(_) =>
         println(s"Will trigger error in UserSession sessionId: $sessionId")

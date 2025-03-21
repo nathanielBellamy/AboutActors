@@ -24,6 +24,9 @@ final case class HydrateAvailableItems(uuid: Option[String], dto: AvailableItems
 
 final case class RequestToAddItemToCart(itemId: String, sessionId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class RequestToRemoveItemFromCart(itemId: String, sessionId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class RequestRefreshSessionItems(sessionId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class RefreshItemsFromInventory(inventoryManager: ActorRef[AbtActMessage]) extends AbtActMessage
+final case class RefreshedSessionItems(itemIds: List[String], replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 
 final case class AddItemToCart(itemId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class ItemAddedToCart(itemId: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
