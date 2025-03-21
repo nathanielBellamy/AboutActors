@@ -1,9 +1,23 @@
 <div class="size-full grid grid-rows-2 grid-cols-10 p-4">
   <div class="row-span-2 col-span-6 p-4 flex flex-col items-stretch gap-4 ">
-    <div class="text-xl font-bold ">
+    <div class="text-xl font-bold max-h-[50px]">
       About Actors
     </div>
-    <div class="flex gap-4 p-4">
+    <div class="flex gap-4 items-center p-4 max-h-[75px]">
+      <div class="font-bold">
+        Set Cookie:
+      </div>
+      <input
+        class="border-2 rounded-md p-2 hover:bg-gray-200 min-w-[350px]"
+        [(ngModel)]="cookieInputValue"
+        type="text">
+      <button
+        class="border-2 rounded-md p-2 hover:bg-gray-200 cursor-pointer"
+        (click)="handleCookieSubmit()">
+        Submit
+      </button>
+    </div>
+    <div class="flex gap-4 p-4 overflow-x-scroll items-center flex-wrap">
       <div class="font-bold">
         Example Buttons:
       </div>
@@ -13,29 +27,29 @@
 <!--        UserSessionInitFail-->
 <!--      </button>-->
       <button
-        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300"
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300 text-nowrap"
         (click)="handleTerminateUserSession()">
-        Terminate Session
+        End Session
       </button>
       <button
-        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300"
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"
         (click)="handleTriggerError('websocket-controller')">
-        Err WebsocketController
+        ❌ WebsocketController
       </button>
       <button
-        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300"
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"
         (click)="handleTriggerError('inventory-manager')">
-        Err InventoryManager
+        ❌ InventoryManager
       </button>
       <button
-        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300"
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"
         (click)="handleTriggerError('user-session-manager')">
-        Err UserSessionManager
+        ❌ UserSessionManager
       </button>
       <button
-        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300"
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"
         (click)="handleTriggerError('user-session')">
-        Err UserSession
+        ❌ UserSession
       </button>
     </div>
     @if (sessionTerminated) {

@@ -2,11 +2,12 @@ import {Component} from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import {WebSocketSubject} from 'rxjs/internal/observable/dom/WebSocketSubject';
 import {webSocket} from 'rxjs/webSocket';
+import {FormsModule} from '@angular/forms';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, FormsModule],
   templateUrl: './app.component.html',
   styleUrl: './app.component.sass'
 })
@@ -15,6 +16,7 @@ export class AppComponent {
   private wsSubject: WebSocketSubject<any> = this.getWsSubject();
   private cookie: string = "";
 
+  protected cookieInputValue: string = "";
   protected availableItems: string[] = [];
   protected cartItems: string[] = [];
 
@@ -107,6 +109,16 @@ export class AppComponent {
         "Content-Type": "application/json"
       }
     }).catch(console.error)
+  }
+
+  protected async handleCookieSubmit(): Promise<any> {
+    return await fetch('/set-cookie', {
+      method: "POST",
+      body: JSON.stringify({sessionId: this.cookie}),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    })
   }
 
   protected getItemEmoji(itemId: string): string {
