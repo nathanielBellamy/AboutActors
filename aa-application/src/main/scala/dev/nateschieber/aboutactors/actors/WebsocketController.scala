@@ -24,7 +24,7 @@ import scala.language.postfixOps
 import scala.util.matching.Regex
 
 object WebsocketController {
-  private val WebsocketControllerServiceKey = ServiceKey[AbtActMessage]("aa_websocket_controller")
+  val WebsocketControllerServiceKey = ServiceKey[AbtActMessage]("aa_websocket_controller")
 
   def apply(userSessionManagerRef: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>

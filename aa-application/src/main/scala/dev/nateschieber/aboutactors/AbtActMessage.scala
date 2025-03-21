@@ -1,9 +1,14 @@
 package dev.nateschieber.aboutactors
 
 import akka.actor.typed.ActorRef
+import akka.actor.typed.receptionist.Receptionist
 import dev.nateschieber.aboutactors.dto.{AvailableItemsDto, UserSessionDto}
 
 sealed trait AbtActMessage
+
+
+final case class FindRefs() extends AbtActMessage
+final case class ListingResponse(listing: Receptionist.Listing) extends AbtActMessage
 
 final case class ProvideSelfRef(selfRef: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class ProvideWebsocketControllerRef(websocketControllerRef: ActorRef[AbtActMessage]) extends AbtActMessage

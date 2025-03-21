@@ -5,11 +5,12 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
+import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideWebsocketControllerRef, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 object InventoryManager {
-  private val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
+  val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
 
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
@@ -18,7 +19,11 @@ object InventoryManager {
 
       context.system.receptionist ! Receptionist.Register(InventoryManagerServiceKey, context.self)
 
-      new InventoryManager(context)
+      val self = new InventoryManager(context)
+
+      context.self ! FindRefs()
+
+      self
   }
 }
 
@@ -43,6 +48,17 @@ class InventoryManager(context: ActorContext[AbtActMessage]) extends AbstractBeh
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     msg match {
+      case FindRefs() =>
+        val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
+        context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        Behaviors.same
+
+      case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
+        // we expect only one listing
+        listings.foreach(listing => websocketController = listing)
+        println("Inventory Manager found websocket controller")
+        Behaviors.same
+
       case RequestToAddItemToCart(itemId, userSessionUuid, userSessionRef) =>
         items(itemId) match {
           case Some(_) =>

@@ -32,7 +32,6 @@ object Supervisor {
         .onFailure[Throwable](SupervisorStrategy.restart)
       val websocketController = context.spawn(supervisedWebsocketController, "websocket_controller")
 
-      inventoryManager ! ProvideWebsocketControllerRef(websocketController)
       userSessionManager ! ProvideWebsocketControllerRef(websocketController)
       websocketController ! ProvideSelfRef(websocketController)
       websocketController ! ProvideInventoryManagerRef(inventoryManager)

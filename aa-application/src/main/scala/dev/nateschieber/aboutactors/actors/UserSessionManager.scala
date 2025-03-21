@@ -8,7 +8,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ProvideWebsocketControllerRef, RemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TerminateUserSession, UserAddedItemToCart, UserAddedItemToCartFailure, UserAddedItemToCartSuccess, UserRemovedItemFromCart}
 
 object UserSessionManager {
-  private val UserSessionManagerServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
+  val UserSessionManagerServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
 
   def apply(): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
