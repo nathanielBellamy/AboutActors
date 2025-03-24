@@ -4,10 +4,8 @@ import akka.actor.typed.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import akka.persistence.r2dbc.ConnectionFactoryProvider
 import dev.nateschieber.aboutactors.actors.Supervisor
 import dev.nateschieber.aboutactors.enums.HttpPort
-import reactor.core.publisher.Mono
 
 import java.awt.Desktop
 import java.net.URI
