@@ -3,7 +3,8 @@ package dev.nateschieber.aboutactors.actors
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery}
-import akka.persistence.typed.PersistenceId
+import akka.persistence.typed.state.{ RecoveryFailed, RecoveryCompleted }
+import akka.persistence.typed.{PersistenceId}
 import dev.nateschieber.aboutactors.{AbtActMessage, InventoryItemAddedToCart, ItemAddedToCart}
 
 object Inventory {
@@ -18,8 +19,10 @@ object Inventory {
   final case class State(items: scala.collection.mutable.Map[String, Option[String]])
 
   private val commandHandler: (State, Command) => Effect[Event, State] = { (state, command) =>
+    println(s"INVENTORY- COMMAND received")
     command match {
       case AddToCart(itemId, sessionId, replyTo) =>
+        println(s"INVENTORY- adding to cart - $itemId - $sessionId")
         state.items(itemId) match {
           case Some(sessionId) =>
             Effect.none.thenRun { _ =>
@@ -46,8 +49,9 @@ object Inventory {
   }
 
   def apply(): Behavior[Command] =
-    EventSourcedBehavior[Command, Event, State](
-      persistenceId = PersistenceId.ofUniqueId("aa-inventory-state"),
+    println("Starting Inventory")
+    val foo = EventSourcedBehavior[Command, Event, State](
+      persistenceId = PersistenceId("Inventory", "aa-inventory-state"),
       emptyState = State(
         scala.collection.mutable.Map[String, Option[String]](
           "001" -> None,
@@ -62,4 +66,16 @@ object Inventory {
       commandHandler = commandHandler,
       eventHandler = eventHandler
     ).withRecovery(Recovery.default)
+      .withJournalPluginId("persistence.journal.plugin")
+      .receiveSignal{
+        case (state, signal) =>
+          println(s"Inventory received signal $signal")
+        case (state, RecoveryCompleted) =>
+          println("Inventory Recovery Completed")
+        case (state, RecoveryFailed(cause)) =>
+          println(s"Inventory Recovery Failed $cause")
+      }
+
+    println("setup inventory behavior")
+    foo
 }

@@ -1,10 +1,11 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
+import akka.pattern.StatusReply
 import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
@@ -13,14 +14,22 @@ import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, Hydra
 object InventoryManager {
   val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
 
-  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
       println("Starting InventoryManager")
 
       context.system.receptionist ! Receptionist.Register(InventoryManagerServiceKey, context.self)
 
-      val self = new InventoryManager(context, supervisor)
+      val supervisedInventory = Behaviors
+          .supervise(
+            Inventory()
+          )
+          .onFailure[Throwable](SupervisorStrategy.restart)
+
+      val inventory = context.spawn(supervisedInventory, "aa-inventory")
+
+      val self = new InventoryManager(context, supervisor, inventory)
 
       context.self ! FindRefs()
 
@@ -29,14 +38,15 @@ object InventoryManager {
 }
 
 class InventoryManager(
-                        context: ActorContext[AbtActMessage],
-                        supervisorIn: ActorRef[AbtActMessage]
-                      ) extends AbstractBehavior[AbtActMessage](context) {
+                        context: ActorContext[AbtActMessage | StatusReply[AbtActMessage]],
+                        supervisorIn: ActorRef[AbtActMessage],
+                        inventoryIn: ActorRef[Inventory.Command]
+                      ) extends AbstractBehavior[AbtActMessage | StatusReply[AbtActMessage]](context) {
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
   private var userSessionSupervisor: Option[ActorRef[AbtActMessage]] = None
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
-  private val inventory = Inventory()
+  private val inventory = inventoryIn
 
   private val items = scala.collection.mutable.Map[String, Option[String]](
     "001" -> None,
@@ -71,7 +81,7 @@ class InventoryManager(
     }
   }
 
-  override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
+  override def onMessage(msg: AbtActMessage | StatusReply[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = {
     msg match {
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
@@ -95,13 +105,17 @@ class InventoryManager(
         )
         Behaviors.same
 
-      case RequestToAddItemToCart(itemId, userSessionUuid, userSessionRef) =>
+      case RequestToAddItemToCart(itemId, sessionId, userSessionRef) =>
+
+        println("Inventory Manager will send command to Inventory")
+        inventory ! Inventory.AddToCart(itemId, sessionId, context.self)
+
         items(itemId) match {
           case Some(_) =>
             // Item already taken
             userSessionRef ! ItemNotAddedToCart(itemId, context.self)
           case None =>
-            items.update(itemId, Some(userSessionUuid))
+            items.update(itemId, Some(sessionId))
             userSessionRef ! ItemAddedToCart(itemId, context.self)
             sendWebsocketControllerMessage(
               HydrateAvailableItems( None, getAvailableItemsDto )
