@@ -1,13 +1,18 @@
 package dev.nateschieber.aboutactors.actors
 
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
+import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery}
-import akka.persistence.typed.state.{ RecoveryFailed, RecoveryCompleted }
-import akka.persistence.typed.{PersistenceId}
+import akka.persistence.typed.state.{RecoveryCompleted, RecoveryFailed}
+import akka.persistence.typed.PersistenceId
 import dev.nateschieber.aboutactors.{AbtActMessage, InventoryItemAddedToCart, ItemAddedToCart}
 
 object Inventory {
+
+  val TypeKey: EntityTypeKey[Command] = EntityTypeKey[Command]("Inventory")
+
   sealed trait Command
   final case class AddToCart(itemId: String, sessionId: String, replyTo: ActorRef[StatusReply[AbtActMessage]]) extends Command
   final case class RemoveFromCart(itemId: String, sessionId: String) extends Command
@@ -48,34 +53,33 @@ object Inventory {
     }
   }
 
-  def apply(): Behavior[Command] =
-    println("Starting Inventory")
-    val foo = EventSourcedBehavior[Command, Event, State](
-      persistenceId = PersistenceId("Inventory", "aa-inventory-state"),
-      emptyState = State(
-        scala.collection.mutable.Map[String, Option[String]](
-          "001" -> None,
-          "002" -> None,
-          "003" -> None,
-          "004" -> None,
-          "005" -> None,
-          "006" -> None,
-          "007" -> None,
-        ) // key: itemId, value: owned by userSessionId
-      ),
-      commandHandler = commandHandler,
-      eventHandler = eventHandler
-    ).withRecovery(Recovery.default)
-      .withJournalPluginId("persistence.journal.plugin")
-      .receiveSignal{
-        case (state, signal) =>
-          println(s"Inventory received signal $signal")
-        case (state, RecoveryCompleted) =>
-          println("Inventory Recovery Completed")
-        case (state, RecoveryFailed(cause)) =>
-          println(s"Inventory Recovery Failed $cause")
-      }
-
-    println("setup inventory behavior")
-    foo
+  def apply(entityId: String, persistenceId: PersistenceId): Behavior[Command] =
+    Behaviors.setup { context =>
+      println(s"Starting Inventory: $entityId")
+      EventSourcedBehavior[Command, Event, State](
+        persistenceId = persistenceId, // PersistenceId("Inventory", "aa-inventory-state"),
+        emptyState = State(
+          scala.collection.mutable.Map[String, Option[String]](
+            "001" -> None,
+            "002" -> None,
+            "003" -> None,
+            "004" -> None,
+            "005" -> None,
+            "006" -> None,
+            "007" -> None,
+          ) // key: itemId, value: owned by userSessionId
+        ),
+        commandHandler = commandHandler,
+        eventHandler = eventHandler
+      ).withRecovery(Recovery.disabled)
+        .withJournalPluginId("persistence.journal.r2dbc.plugin")
+        .receiveSignal{
+          case (state, signal) =>
+            println(s"Inventory received signal $signal")
+          case (state, RecoveryCompleted) =>
+            println("Inventory Recovery Completed")
+          case (state, RecoveryFailed(cause)) =>
+            println(s"Inventory Recovery Failed $cause")
+        }
+    }
 }

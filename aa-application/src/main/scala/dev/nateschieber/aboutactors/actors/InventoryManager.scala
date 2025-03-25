@@ -1,7 +1,7 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal, SupervisorStrategy}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
@@ -10,6 +10,10 @@ import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupe
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
 import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
+import akka.cluster.sharding.typed.scaladsl.ClusterSharding
+import akka.cluster.sharding.typed.scaladsl.Entity
+import akka.persistence.typed.PersistenceId
+
 
 object InventoryManager {
   val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
@@ -17,19 +21,42 @@ object InventoryManager {
   def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
+      import system.executionContext
       println("Starting InventoryManager")
 
       context.system.receptionist ! Receptionist.Register(InventoryManagerServiceKey, context.self)
 
-      val supervisedInventory = Behaviors
-          .supervise(
-            Inventory()
-          )
-          .onFailure[Throwable](SupervisorStrategy.restart)
+//      val supervisedInventory = Behaviors
+//          .supervise(
+//            Inventory()
+//          )
+//          .onFailure[Throwable](SupervisorStrategy.restart)
 
-      val inventory = context.spawn(supervisedInventory, "aa-inventory")
+        println("will try to init sharding")
+        val sharding = ClusterSharding(system)
+        sharding.init(
+          Entity(Inventory.TypeKey) { entityContext =>
+            println("SHARDING INIT FOOOOO")
+            Inventory(entityContext.entityId, PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId))
+          }
+        )
+        println("sharding.inited entity id")
+        val inventoryEntityId = "my-good-ol-entity-id"
+        val inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
+        println(s"inv entityId - ${inventory.entityId} - #### - ${inventory.toString}")
+        inventory ! Inventory.AddToCart("111", "222", null)
+        println("sent command to entity")
 
-      val self = new InventoryManager(context, supervisor, inventory)
+
+      val testInv = context.spawn(Inventory("123", PersistenceId(Inventory.TypeKey.name, "456")), "inv-test")
+      testInv ! Inventory.AddToCart("111", "222", null)
+
+
+
+
+      //        context.spawn(supervisedInventory, "aa-inventory")
+
+      val self = new InventoryManager(context, supervisor, inventoryEntityId)
 
       context.self ! FindRefs()
 
@@ -40,13 +67,15 @@ object InventoryManager {
 class InventoryManager(
                         context: ActorContext[AbtActMessage | StatusReply[AbtActMessage]],
                         supervisorIn: ActorRef[AbtActMessage],
-                        inventoryIn: ActorRef[Inventory.Command]
+                        inventoryEntityId: String
                       ) extends AbstractBehavior[AbtActMessage | StatusReply[AbtActMessage]](context) {
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
   private var userSessionSupervisor: Option[ActorRef[AbtActMessage]] = None
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
-  private val inventory = inventoryIn
+  private val sharding = ClusterSharding(context.system)
+
+  private val inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
 
   private val items = scala.collection.mutable.Map[String, Option[String]](
     "001" -> None,
@@ -64,21 +93,21 @@ class InventoryManager(
   }
 
   private def sendWebsocketControllerMessage(msg: AbtActMessage): Unit = {
-    websocketController match {
-      case Some(ref) => ref ! msg
-      case None =>
-        println("InventoryManager does not have a current ref to WebSocketController")
-        context.self ! FindRefs()
-    }
+//    websocketController match {
+//      case Some(ref) => ref ! msg
+//      case None =>
+//        println("InventoryManager does not have a current ref to WebSocketController")
+//        context.self ! FindRefs()
+//    }
   }
 
   private def sendUserSessionSupervisorMessage(msg: AbtActMessage): Unit = {
-    userSessionSupervisor match {
-      case Some(ref) => ref ! msg
-      case None =>
-        println("InventoryManager does not have a current ref to UserSessionSupervisor")
-        context.self ! FindRefs()
-    }
+//    userSessionSupervisor match {
+//      case Some(ref) => ref ! msg
+//      case None =>
+//        println("InventoryManager does not have a current ref to UserSessionSupervisor")
+//        context.self ! FindRefs()
+//    }
   }
 
   override def onMessage(msg: AbtActMessage | StatusReply[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = {
@@ -171,5 +200,11 @@ class InventoryManager(
         println("InventoryManager::UnMatchedMethod")
         Behaviors.same
     }
+  }
+
+  override def onSignal: PartialFunction[Signal, Behavior[AbtActMessage | StatusReply[AbtActMessage]]] = {
+    case PostStop =>
+      println("InventoryManager Stopped")
+      Behaviors.same
   }
 }

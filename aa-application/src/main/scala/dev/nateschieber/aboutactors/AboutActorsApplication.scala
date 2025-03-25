@@ -16,6 +16,9 @@ object AboutActorsApplication {
   @main def main(): Unit = {
     given system: ActorSystem[Nothing] = ActorSystem(Supervisor(), "abtact_application")
 
+    val dbTester = DBConnectTester()
+    dbTester.run()
+
     lazy val server = Http().newServerAt("localhost", HttpPort.AboutActorsApplication.port).bind(routes())
 
     server.map(_ => {
