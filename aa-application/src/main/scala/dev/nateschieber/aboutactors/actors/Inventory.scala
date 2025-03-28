@@ -1,29 +1,33 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, Behavior, SupervisorStrategy}
 import akka.cluster.sharding.typed.scaladsl.EntityTypeKey
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery}
 import akka.persistence.typed.state.{RecoveryCompleted, RecoveryFailed}
 import akka.persistence.typed.PersistenceId
-import dev.nateschieber.aboutactors.{AbtActMessage, InventoryItemAddedToCart, ItemAddedToCart}
+import akka.persistence.typed.javadsl.EventSourcedBehaviorWithEnforcedReplies
+import akka.persistence.typed.scaladsl.EventSourcedBehavior.{CommandHandler, EventHandler}
+import dev.nateschieber.aboutactors.actors.Inventory.State
+import dev.nateschieber.aboutactors.{AbtActMessage, CborSerializable, InventoryItemAddedToCart, ItemAddedToCart}
+import scala.concurrent.duration.DurationInt
 
 object Inventory {
 
   val TypeKey: EntityTypeKey[Command] = EntityTypeKey[Command]("Inventory")
 
-  sealed trait Command
+  sealed trait Command extends CborSerializable
   final case class AddToCart(itemId: String, sessionId: String, replyTo: ActorRef[StatusReply[AbtActMessage]]) extends Command
   final case class RemoveFromCart(itemId: String, sessionId: String) extends Command
 
-  sealed trait Event
+  sealed trait Event extends CborSerializable
   private final case class AddedToCart(itemId: String, sessionId: String) extends Event
   private final case class RemovedFromCart(itemId: String, sessionId: String) extends Event
 
-  final case class State(items: scala.collection.mutable.Map[String, Option[String]])
+  final case class State(items: Map[String, Option[String]])
 
-  private val commandHandler: (State, Command) => Effect[Event, State] = { (state, command) =>
+  val commandHandler: (State, Command) => Effect[Event, State] = { (state, command) =>
     println(s"INVENTORY- COMMAND received")
     command match {
       case AddToCart(itemId, sessionId, replyTo) =>
@@ -42,14 +46,18 @@ object Inventory {
     }
   }
 
-  private val eventHandler: (State, Event) => State = { (state, event) =>
+  val eventHandler: (State, Event) => State = { (state, event) =>
     event match {
       case AddedToCart(itemId, sessionId) =>
-        state.items.update(itemId, Some(sessionId))
-        state
+        State(state.items.updatedWith(itemId) {
+          case Some(optString) => Some(Some(sessionId))
+          case None => Some(Some(sessionId))
+        })
       case RemovedFromCart(itemId, sessionId) =>
-        state.items.update(itemId, None)
-        state
+        State(state.items.updatedWith(itemId) {
+          case Some(optString) => None
+          case None => None
+        })
     }
   }
 
@@ -59,7 +67,7 @@ object Inventory {
       EventSourcedBehavior[Command, Event, State](
         persistenceId = persistenceId, // PersistenceId("Inventory", "aa-inventory-state"),
         emptyState = State(
-          scala.collection.mutable.Map[String, Option[String]](
+          Map[String, Option[String]](
             "001" -> None,
             "002" -> None,
             "003" -> None,
@@ -71,15 +79,17 @@ object Inventory {
         ),
         commandHandler = commandHandler,
         eventHandler = eventHandler
-      ).withRecovery(Recovery.disabled)
-        .withJournalPluginId("persistence.journal.r2dbc.plugin")
-        .receiveSignal{
-          case (state, signal) =>
-            println(s"Inventory received signal $signal")
+      )
+        .onPersistFailure(
+          SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1)
+        ).receiveSignal{
           case (state, RecoveryCompleted) =>
             println("Inventory Recovery Completed")
           case (state, RecoveryFailed(cause)) =>
             println(s"Inventory Recovery Failed $cause")
+          case (state, signal) =>
+            println(s"Inventory received signal $signal")
         }
     }
+
 }

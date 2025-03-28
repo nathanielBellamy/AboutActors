@@ -26,37 +26,27 @@ object InventoryManager {
 
       context.system.receptionist ! Receptionist.Register(InventoryManagerServiceKey, context.self)
 
-//      val supervisedInventory = Behaviors
-//          .supervise(
-//            Inventory()
-//          )
-//          .onFailure[Throwable](SupervisorStrategy.restart)
+      val sharding = ClusterSharding(system)
+      sharding.init(
+        Entity(Inventory.TypeKey) { entityContext =>
+          println("SHARDING INIT FOOOOO")
+          Inventory.apply(entityContext.entityId, PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId))
+        }
+      )
 
-        println("will try to init sharding")
-        val sharding = ClusterSharding(system)
-        sharding.init(
-          Entity(Inventory.TypeKey) { entityContext =>
-            println("SHARDING INIT FOOOOO")
-            Inventory(entityContext.entityId, PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId))
-          }
-        )
-        println("sharding.inited entity id")
-        val inventoryEntityId = "my-good-ol-entity-id"
+      try {
+        val inventoryEntityId = "my-inv-ent-id"
         val inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
-        println(s"inv entityId - ${inventory.entityId} - #### - ${inventory.toString}")
-        inventory ! Inventory.AddToCart("111", "222", null)
-        println("sent command to entity")
-
-
-      val testInv = context.spawn(Inventory("123", PersistenceId(Inventory.TypeKey.name, "456")), "inv-test")
-      testInv ! Inventory.AddToCart("111", "222", null)
-
-
-
-
-      //        context.spawn(supervisedInventory, "aa-inventory")
-
-      val self = new InventoryManager(context, supervisor, inventoryEntityId)
+        inventory ! Inventory.AddToCart("001", "222", context.self)
+      } catch {
+        case e: Throwable => 
+          println(s"Inv Mang errored sending entity cmd: $e")
+      }
+      
+      val self = new InventoryManager(context, supervisor, "my-inv-ent-id")
+      
+      val testinv = context.spawn(Inventory.apply("my-inv-ent-id", PersistenceId(Inventory.TypeKey.name, "my-inv-ent-id")), "my-inv-ent")
+      testinv ! Inventory.AddToCart("002", "222", context.self)
 
       context.self ! FindRefs()
 
@@ -116,6 +106,7 @@ class InventoryManager(
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
         context.system.receptionist ! Receptionist.Find(UserSessionSupervisorServiceKey, listingResponseAdapter)
         context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+
         Behaviors.same
 
       case ListingResponse(UserSessionSupervisorServiceKey.Listing(listings)) =>

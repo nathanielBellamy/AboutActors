@@ -1,7 +1,6 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.NotUsed
-import akka.actor.TypedActor.self
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.receptionist.ServiceKey
