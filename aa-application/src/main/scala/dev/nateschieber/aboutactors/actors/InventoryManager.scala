@@ -35,7 +35,7 @@ object InventoryManager {
       )
 
       try {
-        val inventoryEntityId = "my-inv-ent-id"
+        val inventoryEntityId = "my-inv-ent-id-sharded"
         val inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
         inventory ! Inventory.AddToCart("001", "222", context.self)
       } catch {
@@ -45,8 +45,8 @@ object InventoryManager {
       
       val self = new InventoryManager(context, supervisor, "my-inv-ent-id")
       
-      val testinv = context.spawn(Inventory.apply("my-inv-ent-id", PersistenceId(Inventory.TypeKey.name, "my-inv-ent-id")), "my-inv-ent")
-      testinv ! Inventory.AddToCart("002", "222", context.self)
+//      val testinv = context.spawn(Inventory.apply("my-inv-ent-id", PersistenceId(Inventory.TypeKey.name, "my-inv-ent-id")), "my-inv-ent")
+//      testinv ! Inventory.AddToCart("002", "222", context.self)
 
       context.self ! FindRefs()
 

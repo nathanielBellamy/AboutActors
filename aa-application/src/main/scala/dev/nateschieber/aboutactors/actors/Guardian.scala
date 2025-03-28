@@ -6,9 +6,9 @@ import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs}
 
-object Supervisor {
+object Guardian {
 
-  def apply(): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(baseHttpPort: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       println("starting Supervisor")
 
@@ -40,11 +40,11 @@ object Supervisor {
         .onFailure[Throwable](SupervisorStrategy.restart)
       val restController = context.spawn(supervisedRestController, "rest_controller")
 
-      new Supervisor(context)
+      new Guardian(context)
   }
 }
 
-class Supervisor(context: ActorContext[AbtActMessage]) extends AbstractBehavior[AbtActMessage](context) {
+class Guardian(context: ActorContext[AbtActMessage], baseHttpPort: Int) extends AbstractBehavior[AbtActMessage](context) {
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] = {
     Behaviors.unhandled
