@@ -7,7 +7,8 @@ import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery}
 import akka.persistence.typed.state.{RecoveryCompleted, RecoveryFailed}
 import akka.persistence.typed.PersistenceId
-import dev.nateschieber.aboutactors.{AbtActMessage, CborSerializable, InventoryItemAddedToCart, InventoryItemRemovedFromCart, ItemAddedToCart}
+import dev.nateschieber.aboutactors.{AbtActMessage, CborSerializable, InventoryAvailableItems, InventoryItemAddedToCart, InventoryItemRemovedFromCart, ItemAddedToCart}
+
 import scala.concurrent.duration.DurationInt
 
 object Inventory {
@@ -17,6 +18,7 @@ object Inventory {
   sealed trait Command extends CborSerializable
   final case class AddToCart(itemId: String, sessionId: String, replyTo: ActorRef[StatusReply[AbtActMessage]]) extends Command
   final case class RemoveFromCart(itemId: String, sessionId: String, replyTo: ActorRef[StatusReply[AbtActMessage]]) extends Command
+  final case class GetAvailableItems(replyTo: ActorRef[StatusReply[AbtActMessage]]) extends Command
 
   sealed trait Event extends CborSerializable
   private final case class AddedToCart(itemId: String, sessionId: String) extends Event
@@ -42,6 +44,11 @@ object Inventory {
         Effect.persist(RemovedFromCart(itemId, sessionId)).thenRun { _ =>
           replyTo ! StatusReply.success(InventoryItemRemovedFromCart(itemId, sessionId))
         }
+      case GetAvailableItems(replyTo) =>
+        Effect.none.thenRun { _ =>
+          val availableItems = state.items.keys.filter(k => state.items(k).isEmpty).toList
+          replyTo ! StatusReply.success(InventoryAvailableItems(availableItems))
+        }
     }
   }
 
@@ -54,8 +61,8 @@ object Inventory {
         })
       case RemovedFromCart(itemId, sessionId) =>
         State(state.items.updatedWith(itemId) {
-          case Some(optString) => None
-          case None => None
+          case Some(_) => Some(None)
+          case None => Some(None)
         })
     }
   }

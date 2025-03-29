@@ -9,13 +9,13 @@ import akka.pattern.StatusReply
 import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, InventoryItemAddedToCart, InventoryItemNotAddedToCart, InventoryItemRemovedFromCart, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, InventoryAvailableItems, InventoryItemAddedToCart, InventoryItemNotAddedToCart, InventoryItemRemovedFromCart, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
 import akka.cluster.sharding.typed.scaladsl.ClusterSharding
 import akka.cluster.sharding.typed.scaladsl.Entity
 import akka.persistence.typed.PersistenceId
 import akka.util.Timeout
-import scala.util.{Failure, Success}
 
+import scala.util.{Failure, Success}
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
@@ -70,9 +70,22 @@ class InventoryManager(
     "007" -> None,
   ) // key: itemId, value: owned by userSessionId
 
-  private def getAvailableItemsDto: AvailableItemsDto = {
-    val availableItems = items.keys.filter(k => items.get(k).get.isEmpty).toList
-    AvailableItemsDto(availableItems)
+  private def hydrateAvailableItemsDto(optSessionId: Option[String]): Unit = {
+    val res: Future[StatusReply[AbtActMessage]] = inventory.ask(
+      manager => Inventory.GetAvailableItems(manager)
+    )
+    implicit val ec = context.system.executionContext
+
+    res.onComplete {
+      case Success(StatusReply.Success(InventoryAvailableItems(availableItems))) =>
+        sendWebsocketControllerMessage(
+          HydrateAvailableItems(optSessionId, AvailableItemsDto(availableItems) )
+        )
+        InventoryAvailableItems(availableItems)
+
+      case Failure(msg) =>
+        println("InventoryManager unable to contact Inventory for available items")
+    }
   }
 
   private def sendWebsocketControllerMessage(msg: AbtActMessage): Unit = {
@@ -129,9 +142,7 @@ class InventoryManager(
             case Success(StatusReply.Success(InventoryItemAddedToCart(itemId, sessionId))) =>
               println(s"Added item $itemId to sessionId $sessionId")
               userSessionRef ! ItemAddedToCart(itemId, context.self)
-              sendWebsocketControllerMessage(
-                HydrateAvailableItems( None, getAvailableItemsDto )
-              )
+              hydrateAvailableItemsDto(None)
               ItemAddedToCart(itemId, context.self)
             case Success(StatusReply.Error(msg)) =>
               println(s"Failed to add item to cart: $msg")
@@ -153,9 +164,7 @@ class InventoryManager(
         res.onComplete {
           case Success(StatusReply.Success(InventoryItemRemovedFromCart(itemId, sessionId))) =>
             userSessionRef ! ItemRemovedFromCart(itemId, context.self)
-            sendWebsocketControllerMessage(
-              HydrateAvailableItems( None, getAvailableItemsDto )
-            )
+            hydrateAvailableItemsDto(None)
             ItemRemovedFromCart(itemId, context.self)
           case Failure(exception) =>
             userSessionRef ! ItemNotRemovedFromCart(itemId, userSessionRef)
@@ -171,16 +180,12 @@ class InventoryManager(
             items.update(itemId, None)
           }
         }
-        sendWebsocketControllerMessage(
-          HydrateAvailableItems( None , getAvailableItemsDto )
-        )
+        hydrateAvailableItemsDto(None)
         userSession ! CartEmptied(context.self)
         Behaviors.same
 
       case HydrateAvailableItemsRequest(optUuid) =>
-        sendWebsocketControllerMessage(
-          HydrateAvailableItems( optUuid, getAvailableItemsDto )
-        )
+        hydrateAvailableItemsDto(optUuid)
         Behaviors.same
 
       case ProvideWebsocketControllerRef(websocketControllerRef) =>
