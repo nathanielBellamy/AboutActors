@@ -10,7 +10,7 @@ object Guardian {
 
   def apply(baseHttpPort: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
-      println("starting Supervisor")
+      println("starting Guardian")
 
       val supervisedInventoryManager = Behaviors
         .supervise(
@@ -28,19 +28,19 @@ object Guardian {
 
       val supervisedWebsocketController = Behaviors
         .supervise(
-          WebsocketController(context.self)
+          WebsocketController(context.self, baseHttpPort + 100)
         )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val websocketController = context.spawn(supervisedWebsocketController, "websocket_controller")
 
       val supervisedRestController = Behaviors
         .supervise(
-          RestController(context.self)
+          RestController(context.self, baseHttpPort + 200)
         )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val restController = context.spawn(supervisedRestController, "rest_controller")
 
-      new Guardian(context)
+      new Guardian(context, baseHttpPort)
   }
 }
 

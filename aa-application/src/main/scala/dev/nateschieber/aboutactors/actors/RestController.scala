@@ -19,7 +19,7 @@ import spray.json.*
 object RestController {
   private val RestControllerServiceKey = ServiceKey[AbtActMessage]("rest_controller")
 
-  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
@@ -29,12 +29,13 @@ object RestController {
 
       context.self ! FindRefs()
 
+      println(s"RestController port: $port")
       lazy val server = Http()
-        .newServerAt("localhost", HttpPort.RestController.port)
+        .newServerAt("localhost", port)
         .bind(restController.routes())
 
       server.map { _ =>
-        println("RestControllerServer online at localhost:" + HttpPort.RestController.port)
+        println("RestControllerServer online at localhost:" + port)
       } recover { case ex =>
         println(ex.getMessage)
       }

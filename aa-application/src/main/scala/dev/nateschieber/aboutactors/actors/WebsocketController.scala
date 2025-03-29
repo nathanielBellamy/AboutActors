@@ -43,7 +43,7 @@ import scala.util.matching.Regex
 object WebsocketController {
   val WebsocketControllerServiceKey = ServiceKey[AbtActMessage]("aa_websocket_controller")
 
-  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
@@ -54,12 +54,12 @@ object WebsocketController {
       val aaWebsocketController = new WebsocketController(context, supervisor)
 
       lazy val server = Http()
-        .newServerAt("localhost", HttpPort.WebsocketController.port)
+        .newServerAt("localhost", port)
         .adaptSettings(_.mapWebsocketSettings(_.withPeriodicKeepAliveMode("ping")))
         .bind(aaWebsocketController.route)
 
       server.map { _ =>
-        println("WebsocketControllerServer online at localhost:" + HttpPort.WebsocketController.port)
+        println("WebsocketControllerServer online at localhost:" + port)
       } recover { case ex =>
         println(ex.getMessage)
       }
