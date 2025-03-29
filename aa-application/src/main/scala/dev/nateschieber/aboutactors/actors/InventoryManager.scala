@@ -9,7 +9,7 @@ import akka.pattern.StatusReply
 import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, InventoryItemAddedToCart, InventoryItemNotAddedToCart, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, InventoryItemAddedToCart, InventoryItemNotAddedToCart, InventoryItemRemovedFromCart, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
 import akka.cluster.sharding.typed.scaladsl.ClusterSharding
 import akka.cluster.sharding.typed.scaladsl.Entity
 import akka.persistence.typed.PersistenceId
@@ -138,21 +138,31 @@ class InventoryManager(
               ItemNotAddedToCart(itemId, context.self)
             case Failure(exception) =>
               println(s"InventoryManager unable to contact Inventory: $exception")
-          }
+              ItemNotAddedToCart(itemId, context.self)
+        }
 
         Behaviors.same
 
-      case RequestToRemoveItemFromCart(itemId, userSessionUuid, userSessionRef) =>
-        items(itemId) match {
-          case Some(_) =>
-            items.update(itemId, None)
+      case RequestToRemoveItemFromCart(itemId, sessionId, userSessionRef) =>
+        val res: Future[StatusReply[AbtActMessage]] = inventory.ask(
+          manager => Inventory.RemoveFromCart(itemId, sessionId, manager)
+        )
+
+        implicit val ec = context.system.executionContext
+
+        res.onComplete {
+          case Success(StatusReply.Success(InventoryItemRemovedFromCart(itemId, sessionId))) =>
             userSessionRef ! ItemRemovedFromCart(itemId, context.self)
             sendWebsocketControllerMessage(
               HydrateAvailableItems( None, getAvailableItemsDto )
             )
-          case None =>
+            ItemRemovedFromCart(itemId, context.self)
+          case Failure(exception) =>
             userSessionRef ! ItemNotRemovedFromCart(itemId, userSessionRef)
+            println(s"InventoryManager unable to contact Inventory: $exception")
+            ItemNotRemovedFromCart(itemId, context.self)
         }
+
         Behaviors.same
 
       case RequestToEmptyCart(sessionId, userSession) =>
