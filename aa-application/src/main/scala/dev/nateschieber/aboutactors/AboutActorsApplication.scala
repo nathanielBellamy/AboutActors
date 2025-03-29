@@ -24,7 +24,7 @@ object AboutActorsApplication {
 
     // NOTE:
     // - Following https://doc.akka.io/libraries/akka-core/current/attachments/akka-sample-sharding-scala.zip
-    //   we init multiple ActorSystems in a single JVM
+    //   we init multiple ActorSystems in a single JVM for simplicity
     // NOTE:
     // - Actor systems communicate w/ eachover over seedNodePorts
     // - Users interact with ports based off baseHttpPort

@@ -21,7 +21,6 @@ object InventoryManager {
   def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
-      import system.executionContext
       println("Starting InventoryManager")
 
       context.system.receptionist ! Receptionist.Register(InventoryManagerServiceKey, context.self)
@@ -78,21 +77,21 @@ class InventoryManager(
   }
 
   private def sendWebsocketControllerMessage(msg: AbtActMessage): Unit = {
-//    websocketController match {
-//      case Some(ref) => ref ! msg
-//      case None =>
-//        println("InventoryManager does not have a current ref to WebSocketController")
-//        context.self ! FindRefs()
-//    }
+    websocketController match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("InventoryManager does not have a current ref to WebSocketController")
+        context.self ! FindRefs()
+    }
   }
 
   private def sendUserSessionSupervisorMessage(msg: AbtActMessage): Unit = {
-//    userSessionSupervisor match {
-//      case Some(ref) => ref ! msg
-//      case None =>
-//        println("InventoryManager does not have a current ref to UserSessionSupervisor")
-//        context.self ! FindRefs()
-//    }
+    userSessionSupervisor match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("InventoryManager does not have a current ref to UserSessionSupervisor")
+        context.self ! FindRefs()
+    }
   }
 
   override def onMessage(msg: AbtActMessage | StatusReply[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = {

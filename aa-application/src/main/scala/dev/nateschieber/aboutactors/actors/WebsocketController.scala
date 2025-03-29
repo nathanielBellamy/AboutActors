@@ -155,21 +155,21 @@ class WebsocketController(
   }
 
   private def sendUserSessionSupervisorMessage(msg: AbtActMessage): Unit = {
-//    userSessionManager match {
-//      case Some(ref) => ref ! msg
-//      case None =>
-//        println("WebSocketController does not have a current ref to UserSessionSupervisor")
-//        context.self ! FindRefs()
-//    }
+    userSessionManager match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("WebSocketController does not have a current ref to UserSessionSupervisor")
+        context.self ! FindRefs()
+    }
   }
 
   private def sendInventoryManagerMessage(msg: AbtActMessage): Unit = {
-//    inventoryManager match {
-//      case Some(ref) => ref ! msg
-//      case None =>
-//        println("WebSocketController does not have a current ref to InventoryManager")
-//        context.self ! FindRefs()
-//    }
+    inventoryManager match {
+      case Some(ref) => ref ! msg
+      case None =>
+        println("WebSocketController does not have a current ref to InventoryManager")
+        context.self ! FindRefs()
+    }
   }
 
   override def onMessage(msg: AbtActMessage): Behavior[AbtActMessage] =
