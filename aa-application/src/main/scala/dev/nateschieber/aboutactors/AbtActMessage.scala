@@ -48,6 +48,7 @@ final case class UserRemovedItemFromCartSuccess(itemId: String, userSessionUuid:
 final case class UserRemovedItemFromCartFailure(itemId: String, userSessionUuid: String, replyTo: ActorRef[AbtActMessage]) extends AbtActMessage
 
 final case class InventoryItemAddedToCart(itemId: String, sessionId: String) extends AbtActMessage
+final case class InventoryItemNotAddedToCart(itemId: String, sessionId: String, msg: String) extends AbtActMessage
 
 final case class TerminateUserSession(userSessionUuid: String, inventoryManager: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class TerminateSession(inventoryManager: ActorRef[AbtActMessage]) extends AbtActMessage

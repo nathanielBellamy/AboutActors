@@ -9,10 +9,15 @@ import akka.pattern.StatusReply
 import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
 import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
-import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
+import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, InventoryItemAddedToCart, InventoryItemNotAddedToCart, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
 import akka.cluster.sharding.typed.scaladsl.ClusterSharding
 import akka.cluster.sharding.typed.scaladsl.Entity
 import akka.persistence.typed.PersistenceId
+import akka.util.Timeout
+import scala.util.{Failure, Success}
+
+import scala.concurrent.Future
+import scala.concurrent.duration.DurationInt
 
 
 object InventoryManager {
@@ -32,16 +37,6 @@ object InventoryManager {
         }
       )
 
-      try {
-        val inventoryEntityId = "inventory-main-entity-id"
-        val inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
-        inventory ! Inventory.AddToCart("001", "222", context.self)
-      } catch {
-        case e: Throwable => 
-          println(s"Inv Mang errored sending entity cmd: $e")
-      }
-      
-
       context.self ! FindRefs()
 
       new InventoryManager(context, supervisor, "my-inv-ent-id")
@@ -60,6 +55,10 @@ class InventoryManager(
   private val sharding = ClusterSharding(context.system)
 
   private val inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
+
+  // NOTE:
+  // - timeout for interactions with inventory
+  implicit val timeout: Timeout = 5.seconds
 
   private val items = scala.collection.mutable.Map[String, Option[String]](
     "001" -> None,
@@ -120,21 +119,27 @@ class InventoryManager(
         Behaviors.same
 
       case RequestToAddItemToCart(itemId, sessionId, userSessionRef) =>
+        val res: Future[StatusReply[AbtActMessage]] = inventory.ask(
+          manager => Inventory.AddToCart(itemId, sessionId, manager)
+        )
 
-        println("Inventory Manager will send command to Inventory")
-        inventory ! Inventory.AddToCart(itemId, sessionId, context.self)
+        implicit val ec = context.system.executionContext
 
-        items(itemId) match {
-          case Some(_) =>
-            // Item already taken
-            userSessionRef ! ItemNotAddedToCart(itemId, context.self)
-          case None =>
-            items.update(itemId, Some(sessionId))
-            userSessionRef ! ItemAddedToCart(itemId, context.self)
-            sendWebsocketControllerMessage(
-              HydrateAvailableItems( None, getAvailableItemsDto )
-            )
-        }
+        res.onComplete {
+            case Success(StatusReply.Success(InventoryItemAddedToCart(itemId, sessionId))) =>
+              println(s"Added item $itemId to sessionId $sessionId")
+              userSessionRef ! ItemAddedToCart(itemId, context.self)
+              sendWebsocketControllerMessage(
+                HydrateAvailableItems( None, getAvailableItemsDto )
+              )
+              ItemAddedToCart(itemId, context.self)
+            case Success(StatusReply.Error(msg)) =>
+              println(s"Failed to add item to cart: $msg")
+              ItemNotAddedToCart(itemId, context.self)
+            case Failure(exception) =>
+              println(s"InventoryManager unable to contact Inventory: $exception")
+          }
+
         Behaviors.same
 
       case RequestToRemoveItemFromCart(itemId, userSessionUuid, userSessionRef) =>

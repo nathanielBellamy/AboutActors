@@ -28,16 +28,17 @@ object Inventory {
   final case class State(items: Map[String, Option[String]])
 
   val commandHandler: (State, Command) => Effect[Event, State] = { (state, command) =>
-    println(s"INVENTORY- COMMAND received")
+    println(s"INVENTORY STATE: ${state.toString}")
     command match {
       case AddToCart(itemId, sessionId, replyTo) =>
-        println(s"INVENTORY- adding to cart - $itemId - $sessionId")
         state.items(itemId) match {
           case Some(sessionId) =>
+            println(s"INVENTORY- will NOT add to cart - $itemId - $sessionId")
             Effect.none.thenRun { _ =>
               replyTo ! StatusReply.error("Item already in another cart.")
             }
           case None =>
+            println(s"INVENTORY- will add to cart - $itemId - $sessionId")
             Effect.persist(AddedToCart(itemId, sessionId)).thenRun { _ =>
               replyTo ! StatusReply.success(InventoryItemAddedToCart(itemId, sessionId))
             }
