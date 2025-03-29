@@ -22,17 +22,20 @@ object AboutActorsApplication {
       case AddressFromURIString(s) => s.port
     }
 
-    // Actor systems communicate w/ eachover over seedNodePorts
-    // users interact with ports based off baseHttpPort
+    // NOTE:
+    // - Following https://doc.akka.io/libraries/akka-core/current/attachments/akka-sample-sharding-scala.zip
+    //   we init multiple ActorSystems in a single JVM
+    // NOTE:
+    // - Actor systems communicate w/ eachover over seedNodePorts
+    // - Users interact with ports based off baseHttpPort
     seedNodePorts.foreach { port =>
       val baseHttpPort = 10000 + port // offset from akka port
       val config = configWithPort(port)
       ActorSystem[AbtActMessage](Guardian(baseHttpPort), "AboutActors", config)
     }
 
-
     if (Desktop.isDesktopSupported && Desktop.getDesktop.isSupported(Desktop.Action.BROWSE))
-      Desktop.getDesktop.browse(new URI("http://localhost:" + HttpPort.RestController.port ))
+      Desktop.getDesktop.browse(new URI("http://localhost:" + 12751))
   }
 
   private def configWithPort(port: Int): Config =

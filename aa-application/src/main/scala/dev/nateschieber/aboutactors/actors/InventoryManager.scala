@@ -29,13 +29,12 @@ object InventoryManager {
       val sharding = ClusterSharding(system)
       sharding.init(
         Entity(Inventory.TypeKey) { entityContext =>
-          println("SHARDING INIT FOOOOO")
           Inventory.apply(entityContext.entityId, PersistenceId(entityContext.entityTypeKey.name, entityContext.entityId))
         }
       )
 
       try {
-        val inventoryEntityId = "my-inv-ent-id-sharded"
+        val inventoryEntityId = "inventory-main-entity-id"
         val inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
         inventory ! Inventory.AddToCart("001", "222", context.self)
       } catch {
@@ -43,14 +42,10 @@ object InventoryManager {
           println(s"Inv Mang errored sending entity cmd: $e")
       }
       
-      val self = new InventoryManager(context, supervisor, "my-inv-ent-id")
-      
-//      val testinv = context.spawn(Inventory.apply("my-inv-ent-id", PersistenceId(Inventory.TypeKey.name, "my-inv-ent-id")), "my-inv-ent")
-//      testinv ! Inventory.AddToCart("002", "222", context.self)
 
       context.self ! FindRefs()
 
-      self
+      new InventoryManager(context, supervisor, "my-inv-ent-id")
   }
 }
 

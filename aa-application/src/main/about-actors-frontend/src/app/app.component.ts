@@ -33,8 +33,14 @@ export class AppComponent {
   }
 
   private getWsSubject(): WebSocketSubject<any> {
+    // TODO
+    // - organize/standardize ports
+    // - ws port is restcontroller port - 100
+    const currentUrl: string = window.location.href;
+    const wsPort: number = parseInt(window.location.port) - 100;
+    console.dir({currentUrl, wsPort})
     const subject = webSocket({
-      url: 'ws://localhost:4201/aa-websocket',
+      url: `ws://localhost:${wsPort}/aa-websocket`,
     });
 
     subject
