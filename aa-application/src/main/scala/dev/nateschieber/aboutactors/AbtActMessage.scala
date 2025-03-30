@@ -4,7 +4,7 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.receptionist.Receptionist
 import dev.nateschieber.aboutactors.dto.{AvailableItemsDto, UserSessionDto}
 
-sealed trait AbtActMessage
+sealed trait AbtActMessage extends CborSerializable
 
 
 final case class FindRefs() extends AbtActMessage

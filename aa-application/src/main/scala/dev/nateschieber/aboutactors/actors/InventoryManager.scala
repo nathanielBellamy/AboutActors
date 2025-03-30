@@ -54,7 +54,7 @@ class InventoryManager(
 
   private val sharding = ClusterSharding(context.system)
 
-  private val inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
+  private var inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
 
   // NOTE:
   // - timeout for interactions with inventory
@@ -69,6 +69,10 @@ class InventoryManager(
     "006" -> None,
     "007" -> None,
   ) // key: itemId, value: owned by userSessionId
+
+  private def getInventoryEntityRef: Unit = {
+    inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
+  }
 
   private def hydrateAvailableItemsDto(optSessionId: Option[String]): Unit = {
     val res: Future[StatusReply[AbtActMessage]] = inventory.ask(
@@ -85,6 +89,8 @@ class InventoryManager(
 
       case Failure(msg) =>
         println("InventoryManager unable to contact Inventory for available items")
+        getInventoryEntityRef
+        hydrateAvailableItemsDto(optSessionId)
     }
   }
 
@@ -149,6 +155,7 @@ class InventoryManager(
               ItemNotAddedToCart(itemId, context.self)
             case Failure(exception) =>
               println(s"InventoryManager unable to contact Inventory: $exception")
+              getInventoryEntityRef
               ItemNotAddedToCart(itemId, context.self)
         }
 
@@ -169,6 +176,7 @@ class InventoryManager(
           case Failure(exception) =>
             userSessionRef ! ItemNotRemovedFromCart(itemId, userSessionRef)
             println(s"InventoryManager unable to contact Inventory: $exception")
+            getInventoryEntityRef
             ItemNotRemovedFromCart(itemId, context.self)
         }
 
