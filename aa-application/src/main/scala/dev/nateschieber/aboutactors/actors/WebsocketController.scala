@@ -15,25 +15,8 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors
-import dev.nateschieber.aboutactors.actors.InventoryManager.InventoryManagerServiceKey
-import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
-import dev.nateschieber.aboutactors.enums.HttpPort
-import dev.nateschieber.aboutactors.{
-  AbtActMessage,
-  FindRefs,
-  HydrateAvailableItems,
-  HydrateAvailableItemsRequest,
-  HydrateUserSession,
-  InitUserSession,
-  InitUserSessionFailure,
-  InitUserSessionSuccess,
-  ListingResponse,
-  ProvideInventoryManagerRef,
-  ProvideWebsocketControllerRef,
-  TerminateSessionSuccess,
-  UserAddedItemToCartFailure,
-  WsInitUserSession
-}
+import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
+import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, TerminateSessionSuccess, UserAddedItemToCartFailure, WsInitUserSession}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -41,17 +24,19 @@ import scala.language.postfixOps
 import scala.util.matching.Regex
 
 object WebsocketController {
-  val WebsocketControllerServiceKey = ServiceKey[AbtActMessage]("aa_websocket_controller")
 
-  def apply(supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(id: Int, supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
-      context.system.receptionist ! Receptionist.Register(WebsocketControllerServiceKey, context.self)
+      context.system.receptionist ! Receptionist.Register(
+        ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, id),
+        context.self
+      )
 
       context.self ! FindRefs()
 
-      val aaWebsocketController = new WebsocketController(context, supervisor)
+      val aaWebsocketController = new WebsocketController(context, id, supervisor)
 
       lazy val server = Http()
         .newServerAt("localhost", port)
@@ -70,16 +55,22 @@ object WebsocketController {
 
 class WebsocketController(
                            context: ActorContext[AbtActMessage],
+                           guardianIdIn: Int,
                            supervisorIn: ActorRef[AbtActMessage]
                          ) extends AbstractBehavior[AbtActMessage](context) {
 
+  private val guardianId: Int = guardianIdIn
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
   private val cookieMessagePattern: Regex = """\"(?s)(.*)::(?s)(.*)\"""".r
 
   private val browserConnections = scala.collection.mutable.Map[String, TextMessage => Unit]()
+  private val userSessionSupervisorServiceKey: ServiceKey[AbtActMessage] =
+    ServiceKeyProvider.forPair(AAServiceKey.UserSessionSupervisor, guardianId)
   private var userSessionManager: Option[ActorRef[AbtActMessage]] = None
+  private val inventoryManagerServiceKey: ServiceKey[AbtActMessage] =
+    ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, guardianId)
   private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
 
   val route: Route =
@@ -176,11 +167,17 @@ class WebsocketController(
     msg match {
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
-        context.system.receptionist ! Receptionist.Find(InventoryManagerServiceKey, listingResponseAdapter)
-        context.system.receptionist ! Receptionist.Find(UserSessionSupervisorServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(
+          inventoryManagerServiceKey,
+          listingResponseAdapter
+        )
+        context.system.receptionist ! Receptionist.Find(
+          userSessionSupervisorServiceKey,
+          listingResponseAdapter
+        )
         Behaviors.same
 
-      case ListingResponse(InventoryManagerServiceKey.Listing(listings)) =>
+      case ListingResponse(inventoryManagerServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => inventoryManager = Some(listing))
         sendInventoryManagerMessage(
@@ -191,7 +188,7 @@ class WebsocketController(
         )
         Behaviors.same
 
-      case ListingResponse(UserSessionSupervisorServiceKey.Listing(listings)) =>
+      case ListingResponse(userSessionSupervisorServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => userSessionManager = Some(listing))
         sendUserSessionSupervisorMessage(

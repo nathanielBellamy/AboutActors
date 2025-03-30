@@ -6,33 +6,40 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors
-import dev.nateschieber.aboutactors.actors.InventoryManager.InventoryManagerServiceKey
-import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
+import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
 import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, FindRefs, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshItemsFromInventory, RemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
 
 object UserSessionSupervisor {
-  val UserSessionSupervisorServiceKey = ServiceKey[AbtActMessage]("user-session-manager")
 
-  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(id: Int, supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
       println("Starting UserSessionSupervisor")
 
-      context.system.receptionist ! Receptionist.Register(UserSessionSupervisorServiceKey, context.self)
+      context.system.receptionist ! Receptionist.Register(
+        ServiceKeyProvider.forPair(AAServiceKey.UserSessionSupervisor, id), 
+        context.self
+      )
 
       context.self ! FindRefs()
 
-      new UserSessionSupervisor(context, supervisor)
+      new UserSessionSupervisor(context, id, supervisor)
   }
 }
 
 class UserSessionSupervisor(
                           context: ActorContext[AbtActMessage],
+                          guardianIdIn: Int,
                           supervisorIn: ActorRef[AbtActMessage]
                         ) extends AbstractBehavior[AbtActMessage](context) {
+  private val guardianId: Int = guardianIdIn
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
-
+  
+  private val inventoryManagerServiceKey =
+    ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, guardianId)
   private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
+  private val websocketControllerServiceKey =
+    ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, guardianId)
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
   private val userSessions = scala.collection.mutable.Map[String, ActorRef[AbtActMessage]]()
 
@@ -49,11 +56,11 @@ class UserSessionSupervisor(
     msg match {
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
-        context.system.receptionist ! Receptionist.Find(InventoryManagerServiceKey, listingResponseAdapter)
-        context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(inventoryManagerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(websocketControllerServiceKey, listingResponseAdapter)
         Behaviors.same
 
-      case ListingResponse(InventoryManagerServiceKey.Listing(listings)) =>
+      case ListingResponse(inventoryManagerServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => inventoryManager = Some(listing))
         Behaviors.same
@@ -62,7 +69,7 @@ class UserSessionSupervisor(
         inventoryManager = Some(imRef)
         Behaviors.same
 
-      case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
+      case ListingResponse(websocketControllerServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => websocketController = Some(listing))
         Behaviors.same
@@ -82,7 +89,7 @@ class UserSessionSupervisor(
         try {
           val supervisedSession = Behaviors
             .supervise(
-              UserSession(uuid, context.self)
+              UserSession(guardianId, uuid, context.self)
             )
             .onFailure[Throwable](SupervisorStrategy.restart)
           val session = context.spawn(supervisedSession, s"user_session_$uuid")

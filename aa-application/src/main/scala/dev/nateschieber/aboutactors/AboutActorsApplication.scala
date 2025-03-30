@@ -28,10 +28,12 @@ object AboutActorsApplication {
     // NOTE:
     // - Actor systems communicate w/ eachover over seedNodePorts
     // - Users interact with ports based off baseHttpPort
+    var guardianId: Int = 0
     seedNodePorts.foreach { port =>
       val baseHttpPort = 10000 + port // offset from akka port
       val config = configWithPort(port)
-      ActorSystem[AbtActMessage](Guardian(baseHttpPort), "AboutActors", config)
+      ActorSystem[AbtActMessage](Guardian(guardianId, baseHttpPort), "AboutActors", config)
+      guardianId += 1
     }
 
     if (Desktop.isDesktopSupported && Desktop.getDesktop.isSupported(Desktop.Action.BROWSE))

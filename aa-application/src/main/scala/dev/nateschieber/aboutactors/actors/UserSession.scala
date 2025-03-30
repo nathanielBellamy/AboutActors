@@ -6,15 +6,16 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import dev.nateschieber.aboutactors
-import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.UserSessionDto
+import dev.nateschieber.aboutactors.servicekeys.AAServiceKey.WebsocketController
+import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
 import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, CartEmptied, FindRefs, HydrateUserSession, InitUserSessionSuccess, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, RefreshItemsFromInventory, RefreshedSessionItems, RemoveItemFromCart, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TerminateSession, TerminateSessionSuccess, TriggerError, UserAddedItemToCartFailure, UserAddedItemToCartSuccess}
 
 import scala.collection.mutable.ListBuffer
 
 object UserSession {
 
-  def apply(uuid: String, userSessionSupervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(guardianId: Int, uuid: String, userSessionSupervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
@@ -24,7 +25,7 @@ object UserSession {
 
       println(s"starting UserSession with sessionId: $uuid")
 
-      val self = new UserSession(context, uuid, userSessionSupervisor)
+      val self = new UserSession(context, guardianId, uuid, userSessionSupervisor)
 
       context.self ! FindRefs()
       userSessionSupervisor ! InitUserSessionSuccess(uuid, context.self)
@@ -35,12 +36,17 @@ object UserSession {
 
 class UserSession(
                    context: ActorContext[AbtActMessage],
+                   guardianIdIn: Int,
                    uuid: String,
                    userSessionSupervisorIn: ActorRef[AbtActMessage]
                  ) extends AbstractBehavior[AbtActMessage](context) {
+  private val guardianId: Int = guardianIdIn
   private val sessionId: String = uuid
   private var itemIds: ListBuffer[String] = ListBuffer()
   private val userSessionSupervisor: ActorRef[AbtActMessage] = userSessionSupervisorIn
+  
+  private val websocketControllerServiceKey: ServiceKey[AbtActMessage] =
+    ServiceKeyProvider.forPair(WebsocketController, guardianId)
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
   private def sendWebsocketControllerMessage(msg: AbtActMessage): Unit = {
@@ -60,10 +66,10 @@ class UserSession(
     msg match {
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
-        context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(websocketControllerServiceKey, listingResponseAdapter)
         Behaviors.same
 
-      case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
+      case ListingResponse(websocketControllerServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => websocketController = Some(listing))
         Behaviors.same

@@ -6,26 +6,25 @@ import akka.actor.typed.scaladsl.{AbstractBehavior, ActorContext, Behaviors}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import dev.nateschieber.aboutactors.actors.InventoryManager.InventoryManagerServiceKey
-import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
-import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, ListingResponse, TerminateUserSession, TriggerError, UserAddedItemToCart, UserRemovedItemFromCart}
 import dev.nateschieber.aboutactors.dto.{CartItemDto, CartItemJsonSupport, TriggerErrorDto, TriggerErrorJsonSupport, UserSessionIdDto, UserSessionIdJsonSupport}
-import dev.nateschieber.aboutactors.enums.HttpPort
+import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import spray.json.*
 
 object RestController {
-  private val RestControllerServiceKey = ServiceKey[AbtActMessage]("rest_controller")
 
-  def apply(supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(id: Int, supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
-      context.system.receptionist ! Receptionist.Register(RestControllerServiceKey, context.self)
+      context.system.receptionist ! Receptionist.Register(
+        ServiceKeyProvider.forPair(AAServiceKey.RestController, id),
+        context.self
+      )
 
-      val restController = new RestController(context, supervisor)
+      val restController = new RestController(context, id, supervisor)
 
       context.self ! FindRefs()
 
@@ -46,6 +45,7 @@ object RestController {
 
 class RestController(
                         context: ActorContext[AbtActMessage],
+                        guardianIdIn: Int,
                         supervisorIn: ActorRef[AbtActMessage]
                     )
   extends AbstractBehavior[AbtActMessage](context)
@@ -54,10 +54,18 @@ class RestController(
     with TriggerErrorJsonSupport
   {
 
+  private val guardianId: Int = guardianIdIn
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
+
+  private val inventoryManagerServiceKey: ServiceKey[AbtActMessage] =
+    ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, guardianId)
   private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
+  private val websocketControllerServiceKey: ServiceKey[AbtActMessage] =
+    ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, guardianId)
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
-  private var userSessionManager: Option[ActorRef[AbtActMessage]] = None
+  private val userSessionSupervisorServiceKey: ServiceKey[AbtActMessage] =
+    ServiceKeyProvider.forPair(AAServiceKey.UserSessionSupervisor, guardianId)
+  private var userSessionSupervisor: Option[ActorRef[AbtActMessage]] = None
 
   private def sendInventoryManagerMessage(msg: AbtActMessage): Unit = {
     inventoryManager match {
@@ -69,7 +77,7 @@ class RestController(
   }
 
   private def sendUserSessionSupervisorMessage(msg: AbtActMessage): Unit = {
-    userSessionManager match {
+    userSessionSupervisor match {
       case Some(ref) => ref ! msg
       case None =>
         println("RestController does not have a current ref to UserSessionSupervisor")
@@ -177,22 +185,22 @@ class RestController(
     msg match {
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
-        context.system.receptionist ! Receptionist.Find(InventoryManagerServiceKey, listingResponseAdapter)
-        context.system.receptionist ! Receptionist.Find(UserSessionSupervisorServiceKey, listingResponseAdapter)
-        context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(inventoryManagerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(userSessionSupervisorServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(websocketControllerServiceKey, listingResponseAdapter)
         Behaviors.same
 
-      case ListingResponse(InventoryManagerServiceKey.Listing(listings)) =>
+      case ListingResponse(inventoryManagerServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => inventoryManager = Some(listing))
         Behaviors.same
 
-      case ListingResponse(UserSessionSupervisorServiceKey.Listing(listings)) =>
+      case ListingResponse(userSessionSupervisorServiceKey.Listing(listings)) =>
         // we expect only one listing
-        listings.foreach(listing => userSessionManager = Some(listing))
+        listings.foreach(listing => userSessionSupervisor = Some(listing))
         Behaviors.same
 
-      case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
+      case ListingResponse(websocketControllerServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => websocketController = Some(listing))
         Behaviors.same

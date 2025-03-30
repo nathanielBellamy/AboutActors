@@ -6,14 +6,13 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import akka.pattern.StatusReply
-import dev.nateschieber.aboutactors.actors.UserSessionSupervisor.UserSessionSupervisorServiceKey
-import dev.nateschieber.aboutactors.actors.WebsocketController.WebsocketControllerServiceKey
 import dev.nateschieber.aboutactors.dto.AvailableItemsDto
 import dev.nateschieber.aboutactors.{AbtActMessage, CartEmptied, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, InventoryAvailableItems, InventoryItemAddedToCart, InventoryItemNotAddedToCart, InventoryItemRemovedFromCart, ItemAddedToCart, ItemNotAddedToCart, ItemNotRemovedFromCart, ItemRemovedFromCart, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, RefreshedSessionItems, RequestRefreshSessionItems, RequestToAddItemToCart, RequestToEmptyCart, RequestToRemoveItemFromCart, TriggerError}
 import akka.cluster.sharding.typed.scaladsl.ClusterSharding
 import akka.cluster.sharding.typed.scaladsl.Entity
 import akka.persistence.typed.PersistenceId
 import akka.util.Timeout
+import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
 
 import scala.util.{Failure, Success}
 import scala.concurrent.Future
@@ -21,14 +20,16 @@ import scala.concurrent.duration.DurationInt
 
 
 object InventoryManager {
-  val InventoryManagerServiceKey = ServiceKey[AbtActMessage]("inventory-manager")
-
-  def apply(supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = Behaviors.setup {
+  
+  def apply(id: Int, supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
       println("Starting InventoryManager")
 
-      context.system.receptionist ! Receptionist.Register(InventoryManagerServiceKey, context.self)
+      context.system.receptionist ! Receptionist.Register(
+        ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, id), 
+        context.self
+      )
 
       val sharding = ClusterSharding(system)
       sharding.init(
@@ -39,17 +40,25 @@ object InventoryManager {
 
       context.self ! FindRefs()
 
-      new InventoryManager(context, supervisor, "my-inv-ent-id")
+      new InventoryManager(context, id, supervisor, "my-inv-ent-id")
   }
 }
 
 class InventoryManager(
                         context: ActorContext[AbtActMessage | StatusReply[AbtActMessage]],
+                        guardianIdIn: Int,
                         supervisorIn: ActorRef[AbtActMessage],
                         inventoryEntityId: String
                       ) extends AbstractBehavior[AbtActMessage | StatusReply[AbtActMessage]](context) {
+  
+  private val guardianId: Int = guardianIdIn
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
+  
+  private val userSessionSupervisorServiceKey: ServiceKey[AbtActMessage] =
+    ServiceKeyProvider.forPair(AAServiceKey.UserSessionSupervisor, guardianId)
   private var userSessionSupervisor: Option[ActorRef[AbtActMessage]] = None
+  private val websocketControllerServiceKey: ServiceKey[AbtActMessage] =
+    ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, guardianId)
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
   private val sharding = ClusterSharding(context.system)
@@ -116,12 +125,12 @@ class InventoryManager(
     msg match {
       case FindRefs() =>
         val listingResponseAdapter = context.messageAdapter[Receptionist.Listing](ListingResponse.apply)
-        context.system.receptionist ! Receptionist.Find(UserSessionSupervisorServiceKey, listingResponseAdapter)
-        context.system.receptionist ! Receptionist.Find(WebsocketControllerServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(userSessionSupervisorServiceKey, listingResponseAdapter)
+        context.system.receptionist ! Receptionist.Find(websocketControllerServiceKey, listingResponseAdapter)
 
         Behaviors.same
 
-      case ListingResponse(UserSessionSupervisorServiceKey.Listing(listings)) =>
+      case ListingResponse(userSessionSupervisorServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => userSessionSupervisor = Some(listing))
         sendUserSessionSupervisorMessage(
@@ -129,7 +138,7 @@ class InventoryManager(
         )
         Behaviors.same
 
-      case ListingResponse(WebsocketControllerServiceKey.Listing(listings)) =>
+      case ListingResponse(websocketControllerServiceKey.Listing(listings)) =>
         // we expect only one listing
         listings.foreach(listing => websocketController = Some(listing))
         sendWebsocketControllerMessage(
