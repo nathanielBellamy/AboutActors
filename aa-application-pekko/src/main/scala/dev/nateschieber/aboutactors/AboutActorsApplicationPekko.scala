@@ -1,7 +1,7 @@
 package dev.nateschieber.aboutactors
 
-import akka.actor.AddressFromURIString
-import akka.actor.typed.ActorSystem
+import org.apache.pekko.actor.AddressFromURIString
+import org.apache.pekko.actor.typed.ActorSystem
 import com.typesafe.config.{Config, ConfigFactory}
 import dev.nateschieber.aboutactors.actors.Guardian
 import scala.jdk.CollectionConverters._
@@ -9,16 +9,16 @@ import scala.jdk.CollectionConverters._
 import java.awt.Desktop
 import java.net.URI
 
-object AboutActorsApplication {
+object AboutActorsApplicationPekko {
 
   @main def main(): Unit = {
     // start up ActorSystem on shards
-    val seedNodePorts = ConfigFactory.load().getStringList("akka.cluster.seed-nodes").asScala.flatMap {
+    val seedNodePorts = ConfigFactory.load().getStringList("pekko.cluster.seed-nodes").asScala.flatMap {
       case AddressFromURIString(s) => s.port
     }
 
     // NOTE:
-    // - Following https://doc.akka.io/libraries/akka-core/current/attachments/akka-sample-sharding-scala.zip
+    // - Following https://doc.org.apache.pekko.io/libraries/akka-core/current/attachments/akka-sample-sharding-scala.zip
     //   we init multiple ActorSystems in a single JVM for simplicity
     // NOTE:
     // - Actor systems communicate w/ eachover over seedNodePorts
@@ -32,7 +32,7 @@ object AboutActorsApplication {
 
     var index: Int = 0
     seedNodePorts.foreach { port =>
-      val baseHttpPort = 10000 + port // offset from akka port
+      val baseHttpPort = 10000 + port // offset from org.apache.pekko port
       val config = configWithPort(port)
       ActorSystem[AbtActMessage](Guardian(guardianIds(index), baseHttpPort), "AboutActors", config)
       index += 1
@@ -45,7 +45,7 @@ object AboutActorsApplication {
 
   private def configWithPort(port: Int): Config =
     ConfigFactory.parseString(s"""
-       akka.remote.artery.canonical.port = $port
+       pekko.remote.artery.canonical.port = $port
         """).withFallback(ConfigFactory.load())
 
 }
