@@ -145,6 +145,7 @@ class WebsocketController(
       case "valid" =>
         println(s"WebsocketController::Received valid message from uuid: $uuid")
         try {
+          context.self ! FindRefs()
           context.self ! WsInitUserSession(uuid, "start")
         } catch {
           case e: Any =>  println(s"WebsocketController::An error occurred spawning UserSession sessionId $uuid : ${e.toString}")
@@ -187,7 +188,6 @@ class WebsocketController(
           userSessionSupervisorServiceKey,
           listingResponseAdapter
         )
-        Thread.sleep(3000)
         otherWebsocketControllerServiceKeys.foreach { sk =>
           context.system.receptionist ! Receptionist.Find(sk, listingResponseAdapter)
         }
