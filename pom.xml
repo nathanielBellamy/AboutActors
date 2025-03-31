@@ -36,9 +36,7 @@
 	<packaging>pom</packaging>
 
 	<modules>
-		<module>
-			aa-application
-		</module>
+		<module>aa-application-akka</module>
 	</modules>
 
 </project>

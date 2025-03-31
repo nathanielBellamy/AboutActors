@@ -7,7 +7,7 @@
         <version>0.0.1</version>
     </parent>
     <groupId>dev.nateschieber</groupId>
-    <artifactId>aa-application</artifactId>
+    <artifactId>aa-application-akka</artifactId>
     <version>0.0.1</version>
     <name>${project.artifactId}</name>
     <description>aa-application</description>
