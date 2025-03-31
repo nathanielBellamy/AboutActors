@@ -12,7 +12,6 @@ final case class ListingResponse(listing: Receptionist.Listing) extends AbtActMe
 final case class ProvideWebsocketControllerRef(websocketControllerRef: ActorRef[AbtActMessage]) extends AbtActMessage
 final case class ProvideInventoryManagerRef(inventoryManagerRef: ActorRef[AbtActMessage]) extends AbtActMessage
 
-final case class WsToPush(msg: String) extends AbtActMessage
 final case class WsInitUserSession(uuid: String, msg: String) extends AbtActMessage
 final case class InitUserSession(uuid: String, msg: String, replyTo: ActorRef[InitUserSessionSuccess | InitUserSessionFailure]) extends AbtActMessage
 final case class InitUserSessionSuccess(uuid: String, session: ActorRef[AbtActMessage]) extends AbtActMessage

@@ -23,13 +23,13 @@ import scala.concurrent.duration.DurationInt
 
 object InventoryManager {
 
-  def apply(id: Int, supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = Behaviors.setup {
+  def apply(guardianId: Int, supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
       println("Starting InventoryManager")
 
       context.system.receptionist ! Receptionist.Register(
-        ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, id),
+        ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, guardianId),
         context.self
       )
 
@@ -42,7 +42,7 @@ object InventoryManager {
 
       context.self ! FindRefs()
 
-      new InventoryManager(context, id, supervisor, "my-inv-ent-id")
+      new InventoryManager(context, guardianId, supervisor, "my-inv-ent-id")
   }
 }
 

@@ -1,15 +1,14 @@
 package dev.nateschieber.aboutactors.actors
 
-import akka.actor.typed.pubsub.PubSub
 import akka.actor.typed.{Behavior, PostStop, Signal, SupervisorStrategy}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, HydrateAvailableItems}
+import dev.nateschieber.aboutactors.{AbtActMessage}
 
 object Guardian {
 
-  def apply(id: Int, guardianIds: List[Int], baseHttpPort: Int): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(id: Int, baseHttpPort: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       println(s"Starting Guardian $id")
 
@@ -29,7 +28,7 @@ object Guardian {
 
       val supervisedWebsocketController = Behaviors
         .supervise(
-          WebsocketController(id, guardianIds, context.self, baseHttpPort + 100)
+          WebsocketController(id, context.self, baseHttpPort + 100)
         )
         .onFailure[Throwable](SupervisorStrategy.restart)
       val websocketController = context.spawn(supervisedWebsocketController, s"websocket_controller_$id")

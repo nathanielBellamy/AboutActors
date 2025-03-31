@@ -15,16 +15,16 @@ import spray.json.*
 
 object RestController {
 
-  def apply(id: Int, supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(guardianId: Int, supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
       context.system.receptionist ! Receptionist.Register(
-        ServiceKeyProvider.forPair(AAServiceKey.RestController, id),
+        ServiceKeyProvider.forPair(AAServiceKey.RestController, guardianId),
         context.self
       )
 
-      val restController = new RestController(context, id, supervisor)
+      val restController = new RestController(context, guardianId, supervisor)
 
       context.self ! FindRefs()
 

@@ -11,19 +11,19 @@ import dev.nateschieber.aboutactors.{AbtActMessage, AddItemToCart, FindRefs, Ini
 
 object UserSessionSupervisor {
 
-  def apply(id: Int, supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(guardianId: Int, supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
       println("Starting UserSessionSupervisor")
 
       context.system.receptionist ! Receptionist.Register(
-        ServiceKeyProvider.forPair(AAServiceKey.UserSessionSupervisor, id), 
+        ServiceKeyProvider.forPair(AAServiceKey.UserSessionSupervisor, guardianId), 
         context.self
       )
 
       context.self ! FindRefs()
 
-      new UserSessionSupervisor(context, id, supervisor)
+      new UserSessionSupervisor(context, guardianId, supervisor)
   }
 }
 

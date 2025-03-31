@@ -18,7 +18,7 @@ import akka.util.Timeout
 import dev.nateschieber.aboutactors
 import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
 import dev.nateschieber.aboutactors.topics.AvailableItems
-import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, TerminateSessionSuccess, UserAddedItemToCartFailure, WsInitUserSession, WsToPush}
+import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, TerminateSessionSuccess, UserAddedItemToCartFailure, WsInitUserSession}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -27,13 +27,13 @@ import scala.util.matching.Regex
 
 object WebsocketController {
 
-  def apply(id: Int, guardianIds: List[Int], supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(guardianId: Int, supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
-      println(s"Starting WebsocketController $id")
+      println(s"Starting WebsocketController $guardianId")
       context.system.receptionist ! Receptionist.Register(
-        ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, id),
+        ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, guardianId),
         context.self
       )
 
@@ -42,7 +42,7 @@ object WebsocketController {
 
       context.self ! FindRefs()
 
-      val websocketController = new WebsocketController(context, id, guardianIds, supervisor)
+      val websocketController = new WebsocketController(context, guardianId, supervisor)
 
       lazy val server = Http()
         .newServerAt("localhost", port)
@@ -62,12 +62,10 @@ object WebsocketController {
 class WebsocketController(
                            context: ActorContext[AbtActMessage],
                            guardianIdIn: Int,
-                           guardianIdsIn: List[Int],
                            supervisorIn: ActorRef[AbtActMessage]
                          ) extends AbstractBehavior[AbtActMessage](context) {
 
   private val guardianId: Int = guardianIdIn
-  private val guardianIds: List[Int] = guardianIdsIn
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
@@ -82,15 +80,6 @@ class WebsocketController(
   private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
 
   private var availableItemsTopic = AvailableItems.getTopic(context)
-
-  private val otherWebsocketControllerServiceKeys: List[ServiceKey[AbtActMessage]] =
-    guardianIds
-      .filter { gid => gid != guardianId }
-      .map { gid =>
-        ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, gid)
-      }
-
-  private var otherWebsocketControllers: List[ActorRef[AbtActMessage]] = List()
 
   val route: Route =
     path("aa-websocket") {
@@ -195,10 +184,6 @@ class WebsocketController(
           userSessionSupervisorServiceKey,
           listingResponseAdapter
         )
-        Thread.sleep(3000)
-        otherWebsocketControllerServiceKeys.foreach { sk =>
-          context.system.receptionist ! Receptionist.Find(sk, listingResponseAdapter)
-        }
         Behaviors.same
 
       case ListingResponse(inventoryManagerServiceKey.Listing(listings)) =>
@@ -218,15 +203,6 @@ class WebsocketController(
         sendUserSessionSupervisorMessage(
           ProvideWebsocketControllerRef(context.self)
         )
-        Behaviors.same
-
-      case ListingResponse(listing) =>
-        println(s"WSC $guardianId listing response $listing")
-        otherWebsocketControllerServiceKeys.foreach { sk =>
-          val instances = listing.allServiceInstances(sk)
-          println(s"WSC $guardianId listing instances $instances")
-          otherWebsocketControllers = otherWebsocketControllers ::: instances.toList
-        }
         Behaviors.same
 
       case ProvideInventoryManagerRef(inventoryManagerRef) =>
@@ -259,21 +235,13 @@ class WebsocketController(
         Behaviors.same
 
       case HydrateAvailableItems(optUuid, dto) =>
-        println(s"WSC $guardianId received HydrateAvailableItems dto $dto")
         optUuid match {
           case Some(uuid) =>
             sendWebsocketMsg(uuid, s"available-item-ids::${dto.itemIds.mkString(",")}")
           case None =>
             val msg = s"available-item-ids::${dto.itemIds.mkString(",")}"
-            println(s"WSC $guardianId hydrate - $msg - $otherWebsocketControllers")
-            otherWebsocketControllers.foreach{ wsc => wsc ! WsToPush(msg)}
             pushWebsocketMsg(msg)
         }
-        Behaviors.same
-
-      case WsToPush(msg) =>
-        println(s"WSC $guardianId - WsToPush - $msg")
-        pushWebsocketMsg(msg)
         Behaviors.same
 
       case TerminateSessionSuccess(sessionId) =>

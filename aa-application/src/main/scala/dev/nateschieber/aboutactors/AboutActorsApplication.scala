@@ -2,17 +2,12 @@ package dev.nateschieber.aboutactors
 
 import akka.actor.AddressFromURIString
 import akka.actor.typed.ActorSystem
-import akka.http.scaladsl.Http
-import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
 import com.typesafe.config.{Config, ConfigFactory}
 import dev.nateschieber.aboutactors.actors.Guardian
-import dev.nateschieber.aboutactors.enums.HttpPort
 import scala.jdk.CollectionConverters._
 
 import java.awt.Desktop
 import java.net.URI
-import scala.concurrent.ExecutionContext.Implicits.global
 
 object AboutActorsApplication {
 
@@ -39,10 +34,11 @@ object AboutActorsApplication {
     seedNodePorts.foreach { port =>
       val baseHttpPort = 10000 + port // offset from akka port
       val config = configWithPort(port)
-      ActorSystem[AbtActMessage](Guardian(guardianIds(index), guardianIds, baseHttpPort), "AboutActors", config)
+      ActorSystem[AbtActMessage](Guardian(guardianIds(index), baseHttpPort), "AboutActors", config)
       index += 1
     }
 
+    Thread.sleep(3000) // give the system a moment to get init
     if (Desktop.isDesktopSupported && Desktop.getDesktop.isSupported(Desktop.Action.BROWSE))
       Desktop.getDesktop.browse(new URI("http://localhost:" + 12751))
   }
@@ -52,13 +48,4 @@ object AboutActorsApplication {
        akka.remote.artery.canonical.port = $port
         """).withFallback(ConfigFactory.load())
 
-  private def routes(): Route = {
-    concat(
-      path("api" / "v1" / "hello") {
-        get {
-          complete("Welcome to About Actors.")
-        }
-      }
-    )
-  }
 }
