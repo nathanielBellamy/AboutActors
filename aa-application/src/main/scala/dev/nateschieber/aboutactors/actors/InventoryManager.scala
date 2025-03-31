@@ -20,14 +20,14 @@ import scala.concurrent.duration.DurationInt
 
 
 object InventoryManager {
-  
+
   def apply(id: Int, supervisor: ActorRef[AbtActMessage]): Behavior[AbtActMessage | StatusReply[AbtActMessage]] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
       println("Starting InventoryManager")
 
       context.system.receptionist ! Receptionist.Register(
-        ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, id), 
+        ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, id),
         context.self
       )
 
@@ -50,10 +50,10 @@ class InventoryManager(
                         supervisorIn: ActorRef[AbtActMessage],
                         inventoryEntityId: String
                       ) extends AbstractBehavior[AbtActMessage | StatusReply[AbtActMessage]](context) {
-  
+
   private val guardianId: Int = guardianIdIn
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
-  
+
   private val userSessionSupervisorServiceKey: ServiceKey[AbtActMessage] =
     ServiceKeyProvider.forPair(AAServiceKey.UserSessionSupervisor, guardianId)
   private var userSessionSupervisor: Option[ActorRef[AbtActMessage]] = None
@@ -107,7 +107,7 @@ class InventoryManager(
     websocketController match {
       case Some(ref) => ref ! msg
       case None =>
-        println("InventoryManager does not have a current ref to WebSocketController")
+//        println("InventoryManager does not have a current ref to WebSocketController")
         context.self ! FindRefs()
     }
   }
@@ -116,7 +116,7 @@ class InventoryManager(
     userSessionSupervisor match {
       case Some(ref) => ref ! msg
       case None =>
-        println("InventoryManager does not have a current ref to UserSessionSupervisor")
+//        println("InventoryManager does not have a current ref to UserSessionSupervisor")
         context.self ! FindRefs()
     }
   }

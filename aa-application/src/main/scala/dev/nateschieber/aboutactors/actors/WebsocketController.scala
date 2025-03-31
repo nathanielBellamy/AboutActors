@@ -8,7 +8,7 @@ import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
+import akka.http.scaladsl.model.ws.{Message, TextMessage}
 import akka.http.scaladsl.server.Directives.{get, handleWebSocketMessages, path}
 import akka.http.scaladsl.server.Route
 import akka.stream.OverflowStrategy
@@ -16,7 +16,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors
 import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
-import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, TerminateSessionSuccess, UserAddedItemToCartFailure, WsInitUserSession}
+import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, TerminateSessionSuccess, UserAddedItemToCartFailure, WsInitUserSession, WsToPush}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import java.util.concurrent.TimeUnit
@@ -25,10 +25,11 @@ import scala.util.matching.Regex
 
 object WebsocketController {
 
-  def apply(id: Int, supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
+  def apply(id: Int, guardianIds: List[Int], supervisor: ActorRef[AbtActMessage], port: Int): Behavior[AbtActMessage] = Behaviors.setup {
     context =>
       given system: ActorSystem[Nothing] = context.system
 
+      println(s"Starting WebsocketController $id")
       context.system.receptionist ! Receptionist.Register(
         ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, id),
         context.self
@@ -36,12 +37,12 @@ object WebsocketController {
 
       context.self ! FindRefs()
 
-      val aaWebsocketController = new WebsocketController(context, id, supervisor)
+      val websocketController = new WebsocketController(context, id, guardianIds, supervisor)
 
       lazy val server = Http()
         .newServerAt("localhost", port)
         .adaptSettings(_.mapWebsocketSettings(_.withPeriodicKeepAliveMode("ping")))
-        .bind(aaWebsocketController.route)
+        .bind(websocketController.route)
 
       server.map { _ =>
         println("WebsocketControllerServer online at localhost:" + port)
@@ -49,17 +50,19 @@ object WebsocketController {
         println(ex.getMessage)
       }
 
-      aaWebsocketController
+      websocketController
   }
 }
 
 class WebsocketController(
                            context: ActorContext[AbtActMessage],
                            guardianIdIn: Int,
+                           guardianIdsIn: List[Int],
                            supervisorIn: ActorRef[AbtActMessage]
                          ) extends AbstractBehavior[AbtActMessage](context) {
 
   private val guardianId: Int = guardianIdIn
+  private val guardianIds: List[Int] = guardianIdsIn
   private val supervisor: ActorRef[AbtActMessage] = supervisorIn
 
   implicit val timeout: Timeout = Timeout.apply(100, TimeUnit.MILLISECONDS)
@@ -72,6 +75,15 @@ class WebsocketController(
   private val inventoryManagerServiceKey: ServiceKey[AbtActMessage] =
     ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, guardianId)
   private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
+
+  private val otherWebsocketControllerServiceKeys: List[ServiceKey[AbtActMessage]] =
+    guardianIds
+      .filter { gid => gid != guardianId }
+      .map { gid =>
+        ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, gid)
+      }
+
+  private var otherWebsocketControllers: List[ActorRef[AbtActMessage]] = List()
 
   val route: Route =
     path("aa-websocket") {
@@ -175,6 +187,10 @@ class WebsocketController(
           userSessionSupervisorServiceKey,
           listingResponseAdapter
         )
+        Thread.sleep(3000)
+        otherWebsocketControllerServiceKeys.foreach { sk =>
+          context.system.receptionist ! Receptionist.Find(sk, listingResponseAdapter)
+        }
         Behaviors.same
 
       case ListingResponse(inventoryManagerServiceKey.Listing(listings)) =>
@@ -194,6 +210,15 @@ class WebsocketController(
         sendUserSessionSupervisorMessage(
           ProvideWebsocketControllerRef(context.self)
         )
+        Behaviors.same
+
+      case ListingResponse(listing) =>
+        println(s"WSC $guardianId listing response $listing")
+        otherWebsocketControllerServiceKeys.foreach { sk =>
+          val instances = listing.allServiceInstances(sk)
+          println(s"WSC $guardianId listing instances $instances")
+          otherWebsocketControllers = otherWebsocketControllers ::: instances.toList
+        }
         Behaviors.same
 
       case ProvideInventoryManagerRef(inventoryManagerRef) =>
@@ -230,8 +255,16 @@ class WebsocketController(
           case Some(uuid) =>
             sendWebsocketMsg(uuid, s"available-item-ids::${dto.itemIds.mkString(",")}")
           case None =>
-            pushWebsocketMsg(s"available-item-ids::${dto.itemIds.mkString(",")}")
+            val msg = s"available-item-ids::${dto.itemIds.mkString(",")}"
+            println(s"WSC $guardianId hydrate - $msg - $otherWebsocketControllers")
+            otherWebsocketControllers.foreach{ wsc => wsc ! WsToPush(msg)}
+            pushWebsocketMsg(msg)
         }
+        Behaviors.same
+
+      case WsToPush(msg) =>
+        println(s"WSC $guardianId - WsToPush - $msg")
+        pushWebsocketMsg(msg)
         Behaviors.same
 
       case TerminateSessionSuccess(sessionId) =>
@@ -242,7 +275,7 @@ class WebsocketController(
         Behaviors.same
 
       case default =>
-        println("WebsocketController::UnMatchedMethod")
+        println(s"WebsocketController::UnMatchedMessage $msg")
         Behaviors.same
     }
 }
