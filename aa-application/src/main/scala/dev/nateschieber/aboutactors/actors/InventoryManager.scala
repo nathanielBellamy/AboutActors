@@ -1,5 +1,6 @@
 package dev.nateschieber.aboutactors.actors
 
+import akka.actor.typed.pubsub.{PubSub, Topic}
 import akka.actor.typed.receptionist.{Receptionist, ServiceKey}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop, Signal, SupervisorStrategy}
 import akka.actor.typed.scaladsl.AbstractBehavior
@@ -13,6 +14,7 @@ import akka.cluster.sharding.typed.scaladsl.Entity
 import akka.persistence.typed.PersistenceId
 import akka.util.Timeout
 import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
+import dev.nateschieber.aboutactors.topics.AvailableItems
 
 import scala.util.{Failure, Success}
 import scala.concurrent.Future
@@ -61,6 +63,8 @@ class InventoryManager(
     ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, guardianId)
   private var websocketController: Option[ActorRef[AbtActMessage]] = None
 
+  private var availableItemsTopic = AvailableItems.getTopic(context)
+
   private val sharding = ClusterSharding(context.system)
 
   private var inventory = sharding.entityRefFor(Inventory.TypeKey, inventoryEntityId)
@@ -91,9 +95,10 @@ class InventoryManager(
 
     res.onComplete {
       case Success(StatusReply.Success(InventoryAvailableItems(availableItems))) =>
-        sendWebsocketControllerMessage(
-          HydrateAvailableItems(optSessionId, AvailableItemsDto(availableItems) )
-        )
+        availableItemsTopic ! Topic.Publish(HydrateAvailableItems(optSessionId, AvailableItemsDto(availableItems)))
+//        sendWebsocketControllerMessage(
+//          HydrateAvailableItems(optSessionId, AvailableItemsDto(availableItems) )
+//        )
         InventoryAvailableItems(availableItems)
 
       case Failure(msg) =>

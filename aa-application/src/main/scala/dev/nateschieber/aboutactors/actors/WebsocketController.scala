@@ -1,6 +1,7 @@
 package dev.nateschieber.aboutactors.actors
 
 import akka.NotUsed
+import akka.actor.typed.pubsub.Topic
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.receptionist.Receptionist
 import akka.actor.typed.receptionist.ServiceKey
@@ -16,6 +17,7 @@ import akka.stream.scaladsl.{Flow, Sink, Source, SourceQueueWithComplete}
 import akka.util.Timeout
 import dev.nateschieber.aboutactors
 import dev.nateschieber.aboutactors.servicekeys.{AAServiceKey, ServiceKeyProvider}
+import dev.nateschieber.aboutactors.topics.AvailableItems
 import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, HydrateAvailableItems, HydrateAvailableItemsRequest, HydrateUserSession, InitUserSession, InitUserSessionFailure, InitUserSessionSuccess, ListingResponse, ProvideInventoryManagerRef, ProvideWebsocketControllerRef, TerminateSessionSuccess, UserAddedItemToCartFailure, WsInitUserSession, WsToPush}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -34,6 +36,9 @@ object WebsocketController {
         ServiceKeyProvider.forPair(AAServiceKey.WebsocketController, id),
         context.self
       )
+
+      val availableItemsTopic = AvailableItems.getTopic(context)
+      availableItemsTopic ! Topic.Subscribe(context.self)
 
       context.self ! FindRefs()
 
@@ -75,6 +80,8 @@ class WebsocketController(
   private val inventoryManagerServiceKey: ServiceKey[AbtActMessage] =
     ServiceKeyProvider.forPair(AAServiceKey.InventoryManager, guardianId)
   private var inventoryManager: Option[ActorRef[AbtActMessage]] = None
+
+  private var availableItemsTopic = AvailableItems.getTopic(context)
 
   private val otherWebsocketControllerServiceKeys: List[ServiceKey[AbtActMessage]] =
     guardianIds
@@ -188,6 +195,7 @@ class WebsocketController(
           userSessionSupervisorServiceKey,
           listingResponseAdapter
         )
+        Thread.sleep(3000)
         otherWebsocketControllerServiceKeys.foreach { sk =>
           context.system.receptionist ! Receptionist.Find(sk, listingResponseAdapter)
         }
@@ -251,6 +259,7 @@ class WebsocketController(
         Behaviors.same
 
       case HydrateAvailableItems(optUuid, dto) =>
+        println(s"WSC $guardianId received HydrateAvailableItems dto $dto")
         optUuid match {
           case Some(uuid) =>
             sendWebsocketMsg(uuid, s"available-item-ids::${dto.itemIds.mkString(",")}")

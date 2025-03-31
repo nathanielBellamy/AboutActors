@@ -1,10 +1,11 @@
 package dev.nateschieber.aboutactors.actors
 
+import akka.actor.typed.pubsub.PubSub
 import akka.actor.typed.{Behavior, PostStop, Signal, SupervisorStrategy}
 import akka.actor.typed.scaladsl.AbstractBehavior
 import akka.actor.typed.scaladsl.ActorContext
 import akka.actor.typed.scaladsl.Behaviors
-import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs}
+import dev.nateschieber.aboutactors.{AbtActMessage, FindRefs, HydrateAvailableItems}
 
 object Guardian {
 
