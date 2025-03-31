@@ -37,6 +37,7 @@
 
 	<modules>
 		<module>aa-application-akka</module>
+		<module>aa-application-pekko</module>
 	</modules>
 
 </project>

@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <artifactId>AboutActors</artifactId>
+        <groupId>dev.nateschieber</groupId>
+        <version>0.0.1</version>
+    </parent>
+    <groupId>dev.nateschieber</groupId>
+    <artifactId>aa-application-pekko</artifactId>
+    <version>0.0.1</version>
+    <name>${project.artifactId}</name>
+    <description>aa-application</description>
+    <inceptionYear>2025</inceptionYear>
+
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <encoding>UTF-8</encoding>
+        <scala.version>3.3.4</scala.version>
+        <scala.binary.version>3</scala.binary.version>
+        <pekko.version>1.2.0-M1</pekko.version>
+        <pekko.http.version>1.1.0</pekko.http.version>
+        <spec2.version>4.2.0</spec2.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Maven Repository Switchboard</name>
+            <layout>default</layout>
+            <url>https://repo1.maven.org/maven2</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala3-library_${scala.binary.version}</artifactId>
+            <version>${scala.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-slf4j_${scala.binary.version}</artifactId>
+            <version>1.2.0-M1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.14</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-actor-typed_${scala.binary.version}</artifactId>
+            <version>1.2.0-M1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-pki_${scala.binary.version}</artifactId>
+            <version>${pekko.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-serialization-jackson_${scala.binary.version}</artifactId>
+            <version>${pekko.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-http_${scala.binary.version}</artifactId>
+            <version>${pekko.http.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-http-spray-json_${scala.binary.version}</artifactId>
+            <version>${pekko.http.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-stream_${scala.binary.version}</artifactId>
+            <version>${pekko.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-persistence-typed_${scala.binary.version}</artifactId>
+            <version>${pekko.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-postgresql</artifactId>
+            <version>0.8.13.RELEASE</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-persistence-r2dbc_${scala.binary.version}</artifactId>
+            <version>1.1.0-M1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-cluster-typed_${scala.binary.version}</artifactId>
+            <version>${pekko.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-cluster-sharding-typed_${scala.binary.version}</artifactId>
+            <version>${pekko.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-persistence-query_${scala.binary.version}</artifactId>
+            <version>${pekko.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-pool</artifactId>
+            <version>1.0.2.RELEASE</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-spi</artifactId>
+            <version>1.0.0.RELEASE</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>r2dbc-postgresql</artifactId>
+            <version>1.0.7.RELEASE</version>
+        </dependency>
+
+        <dependency>
+            <groupId>net.alchim31.maven</groupId>
+            <artifactId>scala-maven-plugin</artifactId>
+            <version>4.9.2</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src/main/scala</sourceDirectory>
+        <plugins>
+            <plugin>
+                <!-- see http://davidb.github.com/scala-maven-plugin -->
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>4.9.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                        <configuration>
+                            <args>
+                                <arg>-dependencyfile</arg>
+                                <arg>${project.build.directory}/.scala_dependencies</arg>
+                            </args>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

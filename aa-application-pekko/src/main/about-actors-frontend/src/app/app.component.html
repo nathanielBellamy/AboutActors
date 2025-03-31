@@ -1,0 +1,128 @@
+<div class="size-full grid grid-rows-2 grid-cols-10 p-4">
+  <div class="row-span-2 col-span-6 p-4 flex flex-col items-stretch gap-4 ">
+    <div class="text-xl font-bold max-h-[50px]">
+      About Actors
+    </div>
+<!--    <div class="flex gap-4 items-center p-4 max-h-[75px]">-->
+<!--      <div class="font-bold">-->
+<!--        Set Cookie:-->
+<!--      </div>-->
+<!--      <input-->
+<!--        class="border-2 rounded-md p-2 hover:bg-gray-200 min-w-[350px]"-->
+<!--        [(ngModel)]="cookieInputValue"-->
+<!--        type="text">-->
+<!--      <button-->
+<!--        class="border-2 rounded-md p-2 hover:bg-gray-200 cursor-pointer"-->
+<!--        (click)="handleCookieSubmit()">-->
+<!--        Submit-->
+<!--      </button>-->
+<!--    </div>-->
+    <div class="flex gap-4 p-4 overflow-x-scroll items-center flex-wrap">
+      <div class="font-bold">
+        Example Buttons:
+      </div>
+<!--      <button-->
+<!--        class="border-2 rounded-md "-->
+<!--        (click)="handleFailToStartUserSessionClick()">-->
+<!--        UserSessionInitFail-->
+<!--      </button>-->
+      <button
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300 text-nowrap"
+        (click)="handleTerminateUserSession()">
+        End Session
+      </button>
+<!--      <button-->
+<!--        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"-->
+<!--        (click)="handleTriggerError('websocket-controller')">-->
+<!--        ❌ WebsocketController-->
+<!--      </button>-->
+      <button
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"
+        (click)="handleTriggerError('inventory-manager')">
+        ❌ InventoryManager
+      </button>
+<!--      <button-->
+<!--        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"-->
+<!--        (click)="handleTriggerError('user-session-manager')">-->
+<!--        ❌ UserSessionManager-->
+<!--      </button>-->
+      <button
+        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"
+        (click)="handleTriggerError('user-session')">
+        ❌ UserSession
+      </button>
+    </div>
+    @if (sessionTerminated) {
+      <div class="font-bold text-2xl bg-red-200 p-2 border-2 rounded-md">
+        User Session Terminated
+      </div>
+    }
+    <div class="flex flex-col items-stretch gap-4 border-4 rounded-md p-4">
+      <div class="text-lg font-bold w-full flex justify-between">
+        <div>
+          Available Items:
+        </div>
+        <div>
+          ({{ availableItems.length }})
+        </div>
+      </div>
+      <div class="flex flex-col items-stretch gap-2 min-h-[300px] max-h-[300px] overflow-y-scroll">
+        @for (item of availableItems; track item) {
+          <div
+            class="w-full flex justify-between border-2 rounded-md bg-green-200 p-4">
+            <div class="font-bold">
+              Item: {{item}}
+              <span class="text-3xl">
+                {{getItemEmoji(item)}}
+                {{getItemEmoji(item)}}
+                {{getItemEmoji(item)}}
+              </span>
+            </div>
+            <button
+              class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-2"
+              (click)="handleAddItemToCart(item)">
+              Add Item To Cart
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+    <div class="flex flex-col items-stretch gap-4 border-4 rounded-md p-4">
+      <div class="text-lg font-bold w-full flex justify-between">
+        <div>
+          Your Cart:
+        </div>
+        <div>
+          ({{ cartItems.length }})
+        </div>
+      </div>
+      <div class="flex flex-col items-stretch gap-2 p-4 min-h-[300px] max-h-[300px] overflow-y-scroll">
+        @for (item of cartItems; track item) {
+          <div
+            class="w-full flex justify-between border-2 rounded-md bg-blue-200 p-4">
+            <div class="font-bold">
+              Item: {{item}} -
+              <span class="text-3xl">
+                {{getItemEmoji(item)}}
+                {{getItemEmoji(item)}}
+                {{getItemEmoji(item)}}
+              </span>
+            </div>
+            <button
+              class="border-2 rounded-md cursor-pointer hover:bg-gray-300 p-2"
+              (click)="handleRemoveItemFromCart(item)">
+              Remove Item From Cart
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+  <div class="row-span-2 col-span-4 flex flex-col items-stretch max-h-[700px] overflow-y-scroll bg-gray-100">
+    @for (entry of log; track entry) {
+      <div class="font-semibold">
+        {{ entry }}
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,12 @@
+package dev.nateschieber.aboutactors.dto
+
+
+case class AvailableItemsDto(itemIds: List[String])
+
+import org.apache.pekko.http.scaladsl.marshallers.sprayjson.SprayJsonSupport
+import dev.nateschieber.aboutactors.AbtActMessage
+import spray.json.{DefaultJsonProtocol, RootJsonFormat}
+
+trait AvailableItemsJsonSupport extends SprayJsonSupport with DefaultJsonProtocol   {
+  implicit val availableItemsFormat: RootJsonFormat[AvailableItemsDto] = jsonFormat1(AvailableItemsDto.apply)
+}
