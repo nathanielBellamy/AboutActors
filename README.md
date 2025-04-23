@@ -1,7 +1,9 @@
 
 # About Actors
 
-- A mostly minimal example of Akka
+- A mostly minimal example of Akka 
+- built in preparation for a talk at exp.oCon 2025
+  - [slides in /presentation](/presentation/exp.oCon-2025-actor-model-nate-schieber.pdf)
 
 
 ## Intellij Setup
