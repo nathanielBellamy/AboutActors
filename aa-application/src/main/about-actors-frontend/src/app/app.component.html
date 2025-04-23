@@ -1,7 +1,28 @@
-<div class="size-full grid grid-rows-2 grid-cols-10 p-4">
-  <div class="row-span-2 col-span-6 p-4 flex flex-col items-stretch gap-4 ">
-    <div class="text-xl font-bold max-h-[50px]">
-      About Actors
+<div
+  [class]="'size-full grid grid-rows-2 grid-cols-1 gap-4 p-4 ' + (window.location.href.includes('12751') ? 'bg-cyan-200' : 'bg-violet-200')">
+  <div class="row-span-2 p-4 flex flex-col items-stretch gap-4 ">
+    <div class="flex flex-col justify-between items-center max-h-[125px]">
+      <div class="text-xl font-bold">
+        About Actors
+      </div>
+      <div class="p-2 border-2 rounded-md">
+        <div class="w-full grid grid-rows-1 grid-cols-2 gap-2">
+          <div class="text-lg font-semibold text-right w-full">
+            UserSession Id:
+          </div>
+          <div class="text-left w-full">
+            {{ cookie }}
+          </div>
+        </div>
+        <div class="w-full grid grid-rows-1 grid-cols-2 gap-2">
+          <div class="text-lg font-semibold text-right w-full">
+            URL:
+          </div>
+          <div class="text-left w-full">
+            {{ window.location.href }}
+          </div>
+        </div>
+      </div>
     </div>
 <!--    <div class="flex gap-4 items-center p-4 max-h-[75px]">-->
 <!--      <div class="font-bold">-->
@@ -17,41 +38,41 @@
 <!--        Submit-->
 <!--      </button>-->
 <!--    </div>-->
-    <div class="flex gap-4 p-4 overflow-x-scroll items-center flex-wrap">
-      <div class="font-bold">
-        Example Buttons:
-      </div>
+<!--    <div class="flex gap-4 p-4 overflow-x-scroll items-center flex-wrap">-->
+<!--      <div class="font-bold">-->
+<!--        Example Buttons:-->
+<!--      </div>-->
 <!--      <button-->
 <!--        class="border-2 rounded-md "-->
 <!--        (click)="handleFailToStartUserSessionClick()">-->
 <!--        UserSessionInitFail-->
 <!--      </button>-->
-      <button
-        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300 text-nowrap"
-        (click)="handleTerminateUserSession()">
-        End Session
-      </button>
+<!--      <button-->
+<!--        class="p-2 border-2 rounded-md cursor-pointer hover:bg-gray-300 text-nowrap"-->
+<!--        (click)="handleTerminateUserSession()">-->
+<!--        End Session-->
+<!--      </button>-->
 <!--      <button-->
 <!--        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"-->
 <!--        (click)="handleTriggerError('websocket-controller')">-->
 <!--        ❌ WebsocketController-->
 <!--      </button>-->
-      <button
-        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"
-        (click)="handleTriggerError('inventory-manager')">
-        ❌ InventoryManager
-      </button>
+<!--      <button-->
+<!--        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"-->
+<!--        (click)="handleTriggerError('inventory-manager')">-->
+<!--        ❌ InventoryManager-->
+<!--      </button>-->
 <!--      <button-->
 <!--        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"-->
 <!--        (click)="handleTriggerError('user-session-manager')">-->
 <!--        ❌ UserSessionManager-->
 <!--      </button>-->
-      <button
-        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"
-        (click)="handleTriggerError('user-session')">
-        ❌ UserSession
-      </button>
-    </div>
+<!--      <button-->
+<!--        class="p-2 border-2 rounded-md cursor-pointer hover:bg-red-300 text-nowrap"-->
+<!--        (click)="handleTriggerError('user-session')">-->
+<!--        ❌ UserSession-->
+<!--      </button>-->
+<!--    </div>-->
     @if (sessionTerminated) {
       <div class="font-bold text-2xl bg-red-200 p-2 border-2 rounded-md">
         User Session Terminated
@@ -118,11 +139,11 @@
       </div>
     </div>
   </div>
-  <div class="row-span-2 col-span-4 flex flex-col items-stretch max-h-[700px] overflow-y-scroll bg-gray-100">
-    @for (entry of log; track entry) {
-      <div class="font-semibold">
-        {{ entry }}
-      </div>
-    }
-  </div>
+<!--  <div class="row-span-2 col-span-4 flex flex-col items-stretch max-h-[700px] overflow-y-scroll bg-gray-100">-->
+<!--    @for (entry of log; track entry) {-->
+<!--      <div class="font-semibold">-->
+<!--        {{ entry }}-->
+<!--      </div>-->
+<!--    }-->
+<!--  </div>-->
 </div>

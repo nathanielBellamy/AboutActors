@@ -3,18 +3,19 @@ import { RouterOutlet } from '@angular/router';
 import {WebSocketSubject} from 'rxjs/internal/observable/dom/WebSocketSubject';
 import {webSocket} from 'rxjs/webSocket';
 import {FormsModule} from '@angular/forms';
+import {NgClass} from '@angular/common';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, FormsModule],
+  imports: [RouterOutlet, FormsModule, NgClass],
   templateUrl: './app.component.html',
   styleUrl: './app.component.sass'
 })
 export class AppComponent {
   title = 'about-actors-frontend';
   private wsSubject: WebSocketSubject<any> = this.getWsSubject();
-  private cookie: string = "";
+  protected cookie: string = "";
 
   protected cookieInputValue: string = "";
   protected availableItems: string[] = [];
@@ -147,4 +148,6 @@ export class AppComponent {
         return "🪅"
     }
   }
+
+  protected readonly window = window;
 }
